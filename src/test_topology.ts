@@ -1,5 +1,4 @@
 // Topology-based test-coverage helper for sub-thread state-space tests.
-// Lineage: Eir topology methodology (EIR-2026-009/010/011) applied to test coverage.
 // Saves compute by collapsing the full (parent_turn x child_turn x context_size x persona)
 // product into equivalence classes under coltrane invariants, then picking
 // 1-2 representatives per class instead of running every multi-turn flow exhaustively.

@@ -2,6 +2,32 @@
   "slug": "project-bootstrap-v0",
   "domain": "bootstrap",
   "description": "The seed that plants seeds. The double-diamond × safe-prereg discipline that births a new coltrane-flavored project. Dispatched once when a new repo is forked from coltrane-oss; the standard's verdict is the project's first sealed pre-reg.",
+  "execution_modes": {
+    "conductor_mode": {
+      "default": true,
+      "description": "Eugene 2026-06-02: 'conductor mode' — the Claude Code thread the user is already in becomes the conductor of this standard. When the user says 'let's do project-bootstrap-v0' (or any natural-language equivalent), Claude reads this JSON, walks the phases[] in order, executes each phase's `intent` conversationally, and prompts the user at each seal-seam. No separate `coltrane dispatch` CLI invocation required. The thread IS the gig.",
+      "user_invocation_examples": [
+        "let's do project-bootstrap-v0",
+        "I'd like to do project bootstrap",
+        "conduct project-bootstrap-v0 for me",
+        "scaffold a new <use-case> project"
+      ],
+      "conductor_protocol": [
+        "1. Read this standards/<slug>.json",
+        "2. Walk phases[] in order",
+        "3. Per phase: execute `intent` conversationally — ask, scan, generate, propose",
+        "4. At each seam-with-seal: prompt user 'ready to seal? (yes/no/refine)' — yes → compute sha256_pre_verdict over the sealed-fields + write ledger entry + freeze",
+        "5. At the final phase: ripen verdict + report (RIPENED / PARTLY-RIPENED / RIPENED-DIFFERENTLY / KILL-FIRED / ABORTED / UNVERIFIED)",
+        "6. The user may interject at any phase: refine, abort, request honest-broker pass, adjust apoha"
+      ]
+    },
+    "dispatch_mode": {
+      "description": "Same standard, different execution surface: the conductor uses Claude Code's Task tool with subagent_type=<phase.agent> to dispatch each phase to a separate Claude with the compiled .claude/agents/<phase.agent>.md system prompt. The user observes; the subagent runs the phase autonomously, returns result to conductor, conductor moves to next phase. Power-user surface — use when phases are heavy + want isolated context per phase.",
+      "subagent_compile_target": ".claude/agents/<phase.agent>.md (compiled from the canonical agent_profile DNA)",
+      "tradeoff": "conductor_mode = lighter / more conversational / single context window. dispatch_mode = heavier / isolated context per phase / parallelizable if dependencies allow."
+    },
+    "score_is_the_same": "The standard JSON IS the score regardless of mode. conductor_mode reads it as a conversation script; dispatch_mode reads it as a phase-routing graph. Same file, two surfaces."
+  },
   "agent_slugs": [
     "domain-explorer",
     "problem-definer",

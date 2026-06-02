@@ -4,13 +4,36 @@ The double-diamond × safe-prereg discipline that births a new coltrane-flavored
 
 ## When this runs
 
-Once, when a new project repo is forked/cloned from coltrane-oss. The user runs (or the convenience script wraps):
+Once, when a new project repo is forked/cloned from coltrane-oss. Two execution surfaces (same score):
+
+**Conductor mode (default — most users)**: The Claude Code thread the user is already in IS the conductor. The user says:
+
+> "let's do project-bootstrap-v0"
+> *— or —*
+> "I'd like to scaffold a new research-brief project"
+
+Claude reads `standards/project-bootstrap-v0.json`, walks the phases conversationally, and prompts the user at each seal-seam. No separate CLI invocation. The thread is the gig.
+
+**Dispatch mode (power user)**: Conductor uses Claude Code's `Task` tool with `subagent_type=<phase.agent>` to spawn a separate Claude (compiled from `.claude/agents/<agent>.md`) for each phase. Isolated context per phase, parallelizable. Useful when phases are heavy or want clean separation. Also accessible via CLI:
 
 ```bash
 coltrane dispatch project-bootstrap-v0 --use-case <code-changes | research-briefs | operations | idea-exploration | bare>
 ```
 
-The standard dispatches its 4 phase-agents, walks the double-diamond, and leaves the project ready for its first real gig.
+Either way: the standard JSON is the score. Mode is just the conductor's seat.
+
+## Conductor mode protocol
+
+When Claude reads this standard in conductor mode:
+
+1. **Discover** — Claude asks the user what kind of project (or scans cwd for hints). Surfaces tensions inline.
+2. **Define** — Claude proposes the charter: `predict`, `kill`, `apoha`, `use_case`. User reviews + refines.
+3. **Seam 1 seal** — Claude asks: *"ready to seal the charter? (yes / no / refine)"*. On yes: computes `sha256_pre_verdict` over `{predict, kill, apoha}`, writes ledger entry, freezes the sealed fields. On no: stays in DEFINE for iteration.
+4. **Develop** — Claude generates the project files (or proposes them inline for the user to approve). Charter fields are FROZEN; only observation appendable.
+5. **Seam 2 / Seam 3** — implicit (charter freezes at seam 2; verdict scope freezes at seam 3 when deliverables are sealed).
+6. **Deliver** — Claude commits, runs preseed e2e specs, computes verdict, chimes welcome.
+
+The user may interject at any phase: refine, abort, request honest-broker pass, adjust apoha. The conductor accommodates.
 
 ## The double-diamond shape
 

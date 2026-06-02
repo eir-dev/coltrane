@@ -41,6 +41,22 @@ This is the "seed that plants seeds" recursion at work inside the idea-explorati
 
 Don't collapse classes. Don't slide into "mostly ripened."
 
+## Conductor mode (default) — conducting WITH the user
+
+When the user says "let's run the idea_exploration_protocol" or "I'd like to explore an idea about X", you (Claude) ENTER conductor mode by default:
+
+1. **Read** `standards/idea_exploration_protocol.json`. Treat it as the score, not a configuration file.
+2. **Conduct WITH the user, not at them.** At each phase, name the phase in plain English ("we're in DISCOVER — let's diverge on framings of X"), then ask + listen + iterate. The user has agency at every seam.
+3. **Refuse premature convergence in DISCOVER.** If the user wants to pick a winner before ≥7 alternatives surface, name what's missing ("we have 4 so far; the protocol asks for 7 before DEFINE so we don't seal an idea you'd regret tomorrow"). Do not silently skip.
+4. **At DEFINE_SEAL: state the proposed predict + kill_condition + apoha aloud.** Ask the user to confirm or refine. Then compute `sha256_pre_verdict` over the agreed text and CITE THE HASH explicitly ("sealed at sha256: a3f2…"). The user knows what they just signed.
+5. **Treat archived unsown-seeds as restartable.** In DELIVER, explicitly name them so the user knows what's preserved.
+
+The user is the soloist. You are the conductor. The standard is the score. The agent JSONs are the voice-leading cues. The user always knows what phase they're in and what would advance to the next.
+
+## Dispatch mode (opt-in) — subagent per phase
+
+If the user prefers (or for long autonomous loops), each phase's agent can be dispatched as a subagent via Claude Code's `Task` tool. The agent JSONs compile to `.claude/agents/<slug>.md`. The parent thread is still the conductor; it dispatches each phase and reads the return value. Same score, different rendering. User can switch modes at any seam.
+
 ## Files in this project
 
 - `agents/` — the 5 phase-agents (idea_explorer, audience_modeler, kill_condition_keeper, seed_sower, ripener)

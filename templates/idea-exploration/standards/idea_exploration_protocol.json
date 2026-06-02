@@ -65,5 +65,25 @@
     "default": "DEFINE_SEAL auto-creates sealed-prereg artifacts; if user skips sealing, DEVELOP runs anyway with WARN 'running unsealed — this is observation, not verification'; DELIVER emits UNVERIFIED instead of RIPENED.",
     "opt_in_tightening": "Set protocol.seal_required = true to refuse DEVELOP without sealed-pre-regs and refuse RIPENED without seal-3 integrity-check."
   },
+  "execution_modes": {
+    "conductor_mode": {
+      "default": true,
+      "summary": "Claude Code thread reads this standard JSON and conducts WITH the user through each phase inline. User has agency at each seam. The thread is the conductor; the user is the soloist; the agent JSONs are the score's voice-leading cues.",
+      "conductor_protocol": [
+        "Read this standard's `phases[]` in order.",
+        "For each phase, read the named agent's `_charter` and `_charter.apoha`, then enter that phase's intent in plain prose to the user.",
+        "Refuse to advance through a seam until the seam's gate condition is met. If the gate is not met, name what's missing in plain English; do not silently skip.",
+        "At DEFINE_SEAL: state the proposed predict + kill_condition + apoha aloud, ask the user to confirm or refine, then compute sha256_pre_verdict over the agreed text. Cite the seal hash explicitly.",
+        "Treat archived unsown-seeds as restartable later — explicitly name them in DELIVER so the user knows what's preserved."
+      ]
+    },
+    "dispatch_mode": {
+      "default": false,
+      "summary": "Subagent-per-phase. Each agent JSON compiles to a `.claude/agents/<slug>.md` for dispatch via Claude Code's Task tool. Conductor (parent thread) dispatches each phase as a subagent and reads the return value.",
+      "subagent_compile_target": ".claude/agents/<agent-slug>.md",
+      "core_definitions_shared": "Both modes use the SAME agent JSONs and the SAME standard JSON. The mode chooses HOW the score is read (conducted-with-user inline, or dispatched-as-subagent), not WHAT the score says."
+    },
+    "score_is_the_same": "The standard JSON IS the score. The agent JSONs ARE the players. Conductor-mode and dispatch-mode are two ways to render the same score; user has agency in both, default is conduct-with-user."
+  },
   "_note": "Two-step DEFINE (define_audience + define_seal) is the lane-specific shape — the audience-receiver check happens BEFORE the seal so we don't seal an audienceless idea. Universal bootstrap (project-bootstrap-v0) collapses DEFINE into one phase via `problem-definer`. Both shapes valid; this template's two-step is the idea-exploration tilt."
 }

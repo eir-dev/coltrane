@@ -1,5 +1,7 @@
 # Live Mode
 
+> **Status: In development.** The pieces ship across several open PRs in this repo. The setup commands and behavior described here are the target — not all of it works end-to-end yet. This doc lands the shape so the wiring can be built against it.
+
 Live Mode runs four agents in your Slack workspace. They show up as bots, react to messages, post threads, and do work on the project you point them at. Each one reasons inside its own Claude Code session — that's its head. Slack is its voice.
 
 This document explains what Live Mode is, how to set it up, and what to expect across the first day, week, and month.

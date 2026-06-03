@@ -40,7 +40,9 @@ CC can now invoke this agent. No restarts. No code changes. The file IS the agen
 
 **Sealed runs.** Every gig produces a `genome_hash` (reproducible) + `run_fingerprint` (model version, scores). Append-only ledger. When something fails, you can replay exactly what happened.
 
-## Live Mode (optional)
+## Live Mode (in development)
+
+> **In development.** The wiring lands across several open PRs; the commands below are the target interface, not yet a working end-to-end. See `docs/live_mode.md` for status.
 
 Run four blank Claude Code agents in your Slack workspace. They show up as bots, react to messages, post threads, and do work on the project you point them at. None of them know what they are at startup — identity emerges from the chain of work they accumulate.
 

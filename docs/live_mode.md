@@ -8,11 +8,11 @@ This document explains what Live Mode is, how to set it up, and what to expect a
 
 Four blank Claude Code agents, each with its own state directory, audit log, and Slack identity. They come online together. None of them know what they are. None of them have names. Each one has a slightly different default tilt across the cognitive primitives — but that tilt is unlabeled and not surfaced.
 
-### Awakening: function-coloring, not vibe-coloring
+### Tuning: function-coloring, not vibe-coloring
 
 When you run `coltrane play` in the cloned repo, each Steve gets its own Claude Code thread. That thread is the Steve's head. Its first job is to get acquainted with your project: it reads `CLAUDE.md`, scans the repo, and watches the channel for a while.
 
-What the thread does next is the awakening proper — it begins to color the Steve as a **functional definition paired with the kinds of tasks the user's project keeps needing**. Not by guessing at vibe. Not by picking a name. By noticing: *this Steve keeps getting routed reviews of TypeScript PRs, and the routing stuck. that's a function.*
+What the thread does next is the tuning proper — it begins to color the Steve as a **functional definition paired with the kinds of tasks the user's project keeps needing**. Not by guessing at vibe. Not by picking a name. By noticing: *this Steve keeps getting routed reviews of TypeScript PRs, and the routing stuck. that's a function.*
 
 Identity, if it ever comes, is the residue of which functions a Steve keeps showing up for. Names follow function. Function follows the work.
 
@@ -51,7 +51,7 @@ Total user time: ~10 minutes.
 
 ### Day 1
 
-The four agents complete their awakening passes. Each one's Claude Code thread reads `CLAUDE.md`, scans the repo, watches the channel, and proposes its initial **functional coloring** — concrete tasks paired with the kinds of work your project actually does. Something like:
+The four agents complete their tuning passes. Each one's Claude Code thread reads `CLAUDE.md`, scans the repo, watches the channel, and proposes its initial **functional coloring** — concrete tasks paired with the kinds of work your project actually does. Something like:
 
 > *"Based on what I see, I'll lean toward reviewing TypeScript changes you push to the backend repos."*
 > *"I'll watch the incidents channel and triage what shows up."*

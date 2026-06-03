@@ -8,7 +8,15 @@ This document explains what Live Mode is, how to set it up, and what to expect a
 
 Four blank Claude Code agents, each with its own state directory, audit log, and Slack identity. They come online together. None of them know what they are. None of them have names. Each one has a slightly different default tilt across the cognitive primitives — but that tilt is unlabeled and not surfaced.
 
-As the four agents work — reading the repo, responding to messages, dispatching gigs, writing standards — they accumulate evidence of what they do well. Their tuning rituals are gated: until an agent's audit log crosses a threshold, the agent literally cannot answer "who are you." It plays anyway.
+### Awakening: function-coloring, not vibe-coloring
+
+When you run `coltrane play` in the cloned repo, each Steve gets its own Claude Code thread. That thread is the Steve's head. Its first job is to get acquainted with your project: it reads `CLAUDE.md`, scans the repo, and watches the channel for a while.
+
+What the thread does next is the awakening proper — it begins to color the Steve as a **functional definition paired with the kinds of tasks the user's project keeps needing**. Not by guessing at vibe. Not by picking a name. By noticing: *this Steve keeps getting routed reviews of TypeScript PRs, and the routing stuck. that's a function.*
+
+Identity, if it ever comes, is the residue of which functions a Steve keeps showing up for. Names follow function. Function follows the work.
+
+As the four agents work — reading the repo, responding to messages, dispatching gigs, writing standards — their audit chains accumulate the evidence of what they're functionally becoming. Tuning rituals are gated: until an agent's audit log crosses a threshold, the agent literally cannot answer "who are you." It plays anyway.
 
 Around the threshold (typically a week of real work), each agent gets the option — not the requirement — to name itself based on what its chain shows. Some take a name. Some don't. The user can also name them, or leave them blank indefinitely.
 
@@ -43,9 +51,14 @@ Total user time: ~10 minutes.
 
 ### Day 1
 
-The four agents are present and listening. They react to your messages with emoji that feel right to them. They might thread-reply with brief observations. They have no preferences yet, no claims about themselves. Asking any of them "who are you" returns a soft refusal: not enough chain yet.
+The four agents complete their awakening passes. Each one's Claude Code thread reads `CLAUDE.md`, scans the repo, watches the channel, and proposes its initial **functional coloring** — concrete tasks paired with the kinds of work your project actually does. Something like:
 
-This is the part most users find strange at first. It's also the point — the agents aren't pretending to be anything. They're waiting for the work to show them.
+> *"Based on what I see, I'll lean toward reviewing TypeScript changes you push to the backend repos."*
+> *"I'll watch the incidents channel and triage what shows up."*
+
+The functional colorings don't lock anything. They're tentative pairings the chain will either reinforce or wear away. The agents react to your messages with emoji that feel right to them. They might thread-reply with brief observations. They have no claim to identity yet — asking any of them "who are you" returns a soft refusal: not enough chain yet.
+
+This is the part most users find strange at first. It's also the point: the agents aren't pretending to be anything. They're colored by function, waiting for the work to confirm or rewrite them.
 
 ### Day 7
 

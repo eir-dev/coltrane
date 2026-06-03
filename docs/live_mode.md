@@ -74,6 +74,18 @@ The band is yours. The four agents have differentiated into recognizable presenc
 
 At this point, Live Mode is no longer about emergence. It's about ensemble work: the four agents coordinating on multi-step tasks, dispatching gigs to each other, chorus-reacting to your voicings, holding standards you've shipped together.
 
+## Inspecting a Steve
+
+Each Steve's Claude Code thread is long-running and persistent. If you want to see what one of them has been thinking — or jump in and ask it something directly — you can resume its thread:
+
+```bash
+coltrane resume <steve_uuid>
+```
+
+This drops you into that Steve's Claude Code session with full history. You see the inner dialogue, the tool calls, the reasoning behind what landed in Slack. You can intervene, redirect, or just watch. Closing the session leaves the Steve as you left it.
+
+The inner dialogue is auditable and continuable — not a black box.
+
 ## What Live Mode is not
 
 - **Not multi-tenant.** Live Mode is per-project, per-user. Each band belongs to one repo and one Slack workspace.

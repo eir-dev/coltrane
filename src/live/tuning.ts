@@ -1,4 +1,4 @@
-// Awakening: on first boot, a Steve reads CLAUDE.md, scans the user's
+// Tuning: on first boot, a Steve reads CLAUDE.md, scans the user's
 // project, pairs the resulting shape with its primitive seed, and seals
 // the result as a single JSONL line in its audit stream.
 //
@@ -11,12 +11,12 @@
 //      that emits 2-4 task-TYPES this Steve would gravitate toward, given
 //      which primitive dominates its seed. Same inputs → same outputs.
 //
-//   3. awaken(...) — orchestration. Scans, loads the seed, produces the
+//   3. tune(...) — orchestration. Scans, loads the seed, produces the
 //      pairings, computes content hashes + a seal hash, appends the seal
 //      to audit.jsonl, returns the seal.
 //
 // Identity, in this module, is the residue of which functions keep
-// showing up across awakenings — never a role-name or a claim.
+// showing up across tunings — never a role-name or a claim.
 
 import { createHash } from "node:crypto";
 import { appendFile, readFile, readdir, stat } from "node:fs/promises";
@@ -25,10 +25,10 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import type { PrimitiveSeed } from "./scaffold.js";
 import type {
-  AwakeningSeal,
+  TuningSeal,
   ProjectShape,
   TaskPairing,
-} from "./awakening_types.js";
+} from "./tuning_types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -175,7 +175,7 @@ async function readRecentPrTitles(
   rootPath: string,
 ): Promise<readonly string[] | null> {
   // gh CLI is best-effort. Missing gh / unauthenticated / network failure
-  // → null. Never blow up the awakening.
+  // → null. Never blow up the tuning.
   try {
     const { stdout } = await execFileAsync(
       "gh",
@@ -451,7 +451,7 @@ export function proposeTaskPairings(
 }
 
 // --------------------------------------------------------------------
-// awaken
+// tune
 // --------------------------------------------------------------------
 
 function sha256Hex(s: string): string {
@@ -486,14 +486,14 @@ function unavailableSignalsFor(shape: ProjectShape): string[] {
 }
 
 /** Orchestrate: scan project → load seed → propose pairings → write a
- * sealed awakening event to audit.jsonl → return the seal. */
-export async function awaken(
+ * sealed tuning event to audit.jsonl → return the seal. */
+export async function tune(
   uuid: string,
   seedPath: string,
   rootPath: string,
   auditPath: string,
   options?: { now?: () => Date; audit_sink?: (line: string) => Promise<void> },
-): Promise<AwakeningSeal> {
+): Promise<TuningSeal> {
   const seedRaw = await readFile(seedPath, "utf8");
   const seedDoc = JSON.parse(seedRaw) as { primitive_seed: PrimitiveSeed };
   const primitiveSeed = seedDoc.primitive_seed;
@@ -514,8 +514,8 @@ export async function awaken(
 
   const at = (options?.now ?? (() => new Date()))().toISOString();
 
-  const seal: AwakeningSeal = {
-    kind: "awakening",
+  const seal: TuningSeal = {
+    kind: "tuning",
     at,
     steve_uuid: uuid,
     project_shape_hash: projectShapeHash,

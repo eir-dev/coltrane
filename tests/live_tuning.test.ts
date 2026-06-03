@@ -1,4 +1,4 @@
-// Awakening tests — project-scan honesty, pure-pairing determinism,
+// Tuning tests — project-scan honesty, pure-pairing determinism,
 // and seal semantics. No real network / no real gh CLI assumed.
 
 import { describe, it, expect } from "vitest";
@@ -6,11 +6,11 @@ import { mkdtemp, writeFile, readFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  awaken,
+  tune,
   proposeTaskPairings,
   scanProject,
-} from "../src/live/awakening.js";
-import type { ProjectShape } from "../src/live/awakening_types.js";
+} from "../src/live/tuning.js";
+import type { ProjectShape } from "../src/live/tuning_types.js";
 import { makeSteveSeed, type PrimitiveSeed } from "../src/live/scaffold.js";
 
 function emptyShape(): ProjectShape {
@@ -147,7 +147,7 @@ describe("proposeTaskPairings — rotates emphasis by dominant primitive", () =>
   });
 });
 
-describe("awaken", () => {
+describe("tune", () => {
   async function setupSteveDir(opts?: {
     withClaudeMd?: boolean;
   }): Promise<{ dir: string; seedPath: string; auditPath: string; uuid: string }> {
@@ -165,12 +165,12 @@ describe("awaken", () => {
 
   it("writes a sealed jsonl entry containing the expected fields", async () => {
     const { dir, seedPath, auditPath, uuid } = await setupSteveDir();
-    const seal = await awaken(uuid, seedPath, dir, auditPath);
+    const seal = await tune(uuid, seedPath, dir, auditPath);
     const audit = await readFile(auditPath, "utf8");
     const lines = audit.split("\n").filter((l) => l.length > 0);
     expect(lines).toHaveLength(1);
     const parsed = JSON.parse(lines[0]!);
-    expect(parsed.kind).toBe("awakening");
+    expect(parsed.kind).toBe("tuning");
     expect(parsed.steve_uuid).toBe(uuid);
     expect(parsed.project_shape_hash).toBe(seal.project_shape_hash);
     expect(parsed.seed_hash).toBe(seal.seed_hash);
@@ -182,9 +182,9 @@ describe("awaken", () => {
   it("seal_hash is deterministic for the same project + seed (controlled time)", async () => {
     const { dir, seedPath, auditPath, uuid } = await setupSteveDir();
     const now = () => new Date("2026-06-03T00:00:00.000Z");
-    const a = await awaken(uuid, seedPath, dir, auditPath, { now });
+    const a = await tune(uuid, seedPath, dir, auditPath, { now });
     // second call into a fresh sink so we don't double-append; just hash check
-    const b = await awaken(uuid, seedPath, dir, auditPath, {
+    const b = await tune(uuid, seedPath, dir, auditPath, {
       now,
       audit_sink: async () => {},
     });
@@ -194,7 +194,7 @@ describe("awaken", () => {
 
   it("empty-ish project (only CLAUDE.md) still produces a valid seal with honest gaps", async () => {
     const { dir, seedPath, auditPath, uuid } = await setupSteveDir();
-    const seal = await awaken(uuid, seedPath, dir, auditPath);
+    const seal = await tune(uuid, seedPath, dir, auditPath);
     expect(seal.seal_hash).toMatch(/^[0-9a-f]{64}$/);
     expect(seal.unavailable_signals).toContain("package_dependencies");
     // recent_pr_titles is best-effort gh; in test env it's almost certainly null.
@@ -203,14 +203,14 @@ describe("awaken", () => {
 
   it("missing CLAUDE.md → claude_md_summary listed in unavailable_signals", async () => {
     const { dir, seedPath, auditPath, uuid } = await setupSteveDir({ withClaudeMd: false });
-    const seal = await awaken(uuid, seedPath, dir, auditPath);
+    const seal = await tune(uuid, seedPath, dir, auditPath);
     expect(seal.unavailable_signals).toContain("claude_md_summary");
   });
 
   it("supports an audit_sink override (no file write needed)", async () => {
     const { dir, seedPath, auditPath, uuid } = await setupSteveDir();
     const captured: string[] = [];
-    const seal = await awaken(uuid, seedPath, dir, auditPath, {
+    const seal = await tune(uuid, seedPath, dir, auditPath, {
       audit_sink: async (line) => {
         captured.push(line);
       },

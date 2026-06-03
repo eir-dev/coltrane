@@ -1,4 +1,4 @@
-// Types for the awakening mechanism.
+// Types for the tuning mechanism.
 //
 // On first boot, each Steve scans the user's project and pairs the
 // resulting shape with its primitive seed. The output is a deterministic,
@@ -41,26 +41,26 @@ export interface TaskPairing {
   example_signals_to_watch_for: readonly string[];
 }
 
-/** The deterministic sealed record of one Steve's awakening. Written as
+/** The deterministic sealed record of one Steve's tuning. Written as
  * a single line of `audit.jsonl` so the boot history is replayable. */
-export interface AwakeningSeal {
+export interface TuningSeal {
   /** Schema/format marker for the audit entry. */
-  kind: "awakening";
+  kind: "tuning";
   /** ISO-8601 UTC. */
   at: string;
   steve_uuid: string;
   /** Content hash of the project shape (sha256, hex). Lets later events
-   * detect whether the project has changed since awakening. */
+   * detect whether the project has changed since tuning. */
   project_shape_hash: string;
   /** Content hash of the primitive seed (sha256, hex). */
   seed_hash: string;
   /** The proposed task pairings, in the order produced. */
   pairings: readonly TaskPairing[];
-  /** Names of signals that were unavailable for this awakening (e.g.
+  /** Names of signals that were unavailable for this tuning (e.g.
    * "recent_pr_titles", "recent_activity"). Honest gap-tracking. */
   unavailable_signals: readonly string[];
   /** The seal hash — sha256 over (steve_uuid + project_shape_hash +
    * seed_hash + pairings). Returned as the public identifier of the
-   * awakening event. */
+   * tuning event. */
   seal_hash: string;
 }

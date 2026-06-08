@@ -340,52 +340,9 @@ describe("chairs §B — input_contract / output_contract integrity", () => {
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// §C. Runtime contracts (RED until parallel dispatcher lands)
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("chairs §C — runtime parallel-dispatch contracts (RED until executor)", () => {
-  it.todo(
-    "runGig dispatches a single-chair phase identically to today's single-agent phase (regression)",
-  );
-  it.todo(
-    "runGig dispatches multi-chair fan-out in parallel and gathers all outputs into the next phase's scope",
-  );
-  it.todo(
-    "runGig respects depends_on: a chair starts only after every chair in its depends_on completes",
-  );
-  it.todo(
-    "runGig validates chair.output_contract after invocation; missing output → phase aborts with named chair",
-  );
-  it.todo(
-    "runGig validates chair.input_contract before invocation; missing input → phase aborts before dispatch",
-  );
-  it.todo(
-    "runGig: if ANY chair in a topological level fails, the whole phase fails with the named failing chair(s)",
-  );
-  it.todo(
-    "runGig: cross-phase depends_on works — chair in phase N depends on chair in phase 0..N-1",
-  );
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// §D. Chain-receipt contracts (RED until chain-keeper extends)
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("chairs §D — chain-receipt per-chair settlement (RED until chain extends)", () => {
-  it.todo(
-    "each chair emits a settlement event with kind='chair_settled', role=<role>, phase=<phase name>",
-  );
-  it.todo(
-    "chair settlement's derived_from is the union of the gig prereg sha and the settlements of chairs in depends_on",
-  );
-  it.todo(
-    "phase settlement aggregates all chair settlements; gig settlement aggregates phase settlements",
-  );
-  it.todo(
-    "chain replay reproduces the gig output by walking chair settlements in topological order",
-  );
-});
+// §C runtime contracts + §D chain-receipt contracts moved to subhuti's
+// tests/chair_runtime.test.ts file. This file (§A §B §E) is the
+// compose-time + migration-time contract surface, methodology lane's slice.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // §E. Migration / codemod contracts (RED until codemod runs)

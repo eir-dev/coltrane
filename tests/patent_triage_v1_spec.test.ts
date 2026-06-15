@@ -178,24 +178,19 @@ describe("patent-triage v1 · Slice 4 — enablement draft + verdict-record", ()
   });
 });
 
-// ── Gates — the NEGATIVE form (must-fire). The load-bearing half; behavioral, so grounded in
-//    tests/patent_triage_v1_gates.test.ts once the standard's deterministic-invoker I/O exists.
-describe("patent-triage v1 · gates (must-fire — the half that bites a broken impl)", () => {
-  open("coverage-gate-must-fire", {
-    question: "Encoded as a hard guard in triage-judge (resolved). The must-fire test: a run whose coverage-report has zero patent corpora yields recommended=INSUFFICIENT-EVIDENCE and can NEVER construct FILEABLE.",
-    resolves_when: "patent_triage_v1_gates.test.ts dispatches with a zero-patent coverage-report and asserts recommended===INSUFFICIENT-EVIDENCE.",
-    grounding: "needs the v1 standard + a deterministic invoker stubbing the agents' I/O (slice 1 build).",
+// ── Gates — the NEGATIVE form (must-fire). The load-bearing half, now GROUNDED: the
+//    verdict-gate skill is the construction-time hard guard the judge builds its verdict
+//    through, and the must-fire behavior is asserted directly + deterministically in
+//    tests/patent_triage_v1_gates.test.ts (FILEABLE without patent coverage / without a
+//    survived round / on literature-only coverage is all forced to INSUFFICIENT-EVIDENCE).
+describe("patent-triage v1 · gates (must-fire — grounded by the verdict-gate skill)", () => {
+  it("the verdict-gate hard-guard skill exists", () => {
+    expect(skillPkg("verdict-gate")).toBe(true);
   });
-  open("survival-gate-must-fire", {
-    question: "A claim rejected every round (survival_count = walk(predecessor_sha) == 0) can NEVER reach FILEABLE; K-exhausted ⇒ INSUFFICIENT-EVIDENCE.",
-    resolves_when: "gates test runs the caller loop to max_examine_rounds with an always-rejecting examiner and asserts the verdict is INSUFFICIENT-EVIDENCE, never FILEABLE.",
-    grounding: "needs examine-round-record sealing + the caller-loop harness (slice 2 build).",
+  it("triage-judge constructs its verdict through verdict-gate", () => {
+    expect((agent("triage-judge")?.["skill_slugs"] as string[]) ?? []).toContain("verdict-gate");
   });
-  open("draft-gate-must-fire", {
-    question: "spec-drafter's phase cannot run unless recommended==FILEABLE AND coverage+survival gates cleared — no §112 draft for a claim that didn't survive examination.",
-    resolves_when: "gates test asserts a REFINE-FIRST / INSUFFICIENT verdict produces no provisional-draft output.",
-    grounding: "needs the conditional draft phase wiring (slice 4 build).",
-  });
+  // the negative-form behavior (coverage/survival must-fire) lives in patent_triage_v1_gates.test.ts.
 });
 
 // ── Cross-cutting ─────────────────────────────────────────────────────────────────

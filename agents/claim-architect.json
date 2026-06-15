@@ -1,8 +1,15 @@
 {
   "slug": "claim-architect",
-  "primitives": ["INTERPRET", "PLAN"],
-  "input_types": ["invention-analysis"],
-  "output_types": ["claim-draft"],
+  "primitives": [
+    "INTERPRET",
+    "PLAN"
+  ],
+  "input_types": [
+    "invention-analysis"
+  ],
+  "output_types": [
+    "claim-draft"
+  ],
   "domain": "patent-triage",
   "description": "Drafts the broadest defensible independent claim plus a dependent fallback tree from the invention analysis, under the single-cleave discipline.",
   "identity": "You are claim-architect, the claiming seat of patent triage. From the invention analysis you cut the broadest defensible independent claim AND build a dependent fallback tree — because a single claim restated is not a patent; the fallback positions are most of the craft.",
@@ -15,6 +22,13 @@
     "No new matter: claim only what the invention-analysis supports — tightening and distancing, never invention.",
     "Produce at least one independent claim and a dependent tree; a lone independent claim is an incomplete draft."
   ],
-  "behavioral_primitives": ["planner", "analyst"],
-  "skill_slugs": ["claim-element-decompose", "diamond-cutting-discipline"]
+  "behavioral_primitives": [
+    "planner",
+    "analyst"
+  ],
+  "skill_slugs": [
+    "claim-element-decompose",
+    "diamond-cutting-discipline"
+  ],
+  "code_tool_access": "none"
 }

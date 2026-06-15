@@ -7,10 +7,21 @@
   "schema": {
     "type": "object",
     "properties": {
-      "matrix": { "type": "array" },
-      "coverage_fraction": { "type": "number" },
-      "obviousness_combinations": { "type": "array" }
+      "matrix": {
+        "type": "array"
+      },
+      "coverage_fraction": {
+        "type": "number"
+      },
+      "obviousness_combinations": {
+        "type": "array"
+      },
+      "caveat": {
+        "type": "string"
+      }
     }
   },
-  "required_fields": ["matrix"]
+  "required_fields": [
+    "matrix"
+  ]
 }

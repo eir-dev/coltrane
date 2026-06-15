@@ -7,11 +7,27 @@
   "schema": {
     "type": "object",
     "properties": {
-      "real_contribution": { "type": "string" },
-      "claimed_vs_actual": { "type": "string" },
-      "candidate_inventive_concepts": { "type": "array" },
-      "embodiments": { "type": "array" }
+      "real_contribution": {
+        "type": "string"
+      },
+      "claimed_vs_actual": {
+        "type": "string"
+      },
+      "candidate_inventive_concepts": {
+        "type": "array"
+      },
+      "embodiments": {
+        "type": "array"
+      },
+      "caveat": {
+        "type": "string"
+      },
+      "enablement_gaps": {
+        "type": "array"
+      }
     }
   },
-  "required_fields": ["real_contribution"]
+  "required_fields": [
+    "real_contribution"
+  ]
 }

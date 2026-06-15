@@ -7,11 +7,24 @@
   "schema": {
     "type": "object",
     "properties": {
-      "corpora_searched": { "type": "array" },
-      "query_log": { "type": "array" },
-      "patent_hit_count": { "type": "number" },
-      "literature_hit_count": { "type": "number" }
+      "corpora_searched": {
+        "type": "array"
+      },
+      "query_log": {
+        "type": "array"
+      },
+      "patent_hit_count": {
+        "type": "number"
+      },
+      "literature_hit_count": {
+        "type": "number"
+      },
+      "caveat": {
+        "type": "string"
+      }
     }
   },
-  "required_fields": ["corpora_searched"]
+  "required_fields": [
+    "corpora_searched"
+  ]
 }

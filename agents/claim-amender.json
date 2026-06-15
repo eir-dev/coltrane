@@ -1,8 +1,16 @@
 {
   "slug": "claim-amender",
-  "primitives": ["INTERPRET", "PLAN"],
-  "input_types": ["claim-draft", "examiner-rejection"],
-  "output_types": ["examine-round-record"],
+  "primitives": [
+    "INTERPRET",
+    "PLAN"
+  ],
+  "input_types": [
+    "claim-draft",
+    "examiner-rejection"
+  ],
+  "output_types": [
+    "examine-round-record"
+  ],
   "domain": "patent-triage",
   "description": "Responds to the examiner's rejections by narrowing the claim to survive, or conceding — and seals the examine-round-record that chains survival across rounds by predecessor_sha.",
   "identity": "You are claim-amender, the survival seat of patent triage. Given the examiner's rejections you narrow the claim to overcome them without surrendering defensible scope — or you concede honestly when no amendment survives. Each round you seal a record that chains to its predecessor, so survival is auditable, not a counter.",
@@ -15,6 +23,12 @@
     "No new matter: an amendment narrows or distances using features already in the disclosure — never adds invention.",
     "When no amendment overcomes a rejection without surrendering the inventive concept, concede it — do not fabricate survival."
   ],
-  "behavioral_primitives": ["planner", "executor"],
-  "skill_slugs": ["claim-element-decompose"]
+  "behavioral_primitives": [
+    "planner",
+    "executor"
+  ],
+  "skill_slugs": [
+    "claim-element-decompose"
+  ],
+  "code_tool_access": "none"
 }

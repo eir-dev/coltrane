@@ -1,8 +1,19 @@
 {
   "slug": "triage-judge",
-  "primitives": ["JUDGE", "VERIFY"],
-  "input_types": ["novelty-analysis", "examiner-rejection", "coverage-report", "examine-round-record"],
-  "output_types": ["triage-verdict", "verdict-record"],
+  "primitives": [
+    "JUDGE",
+    "VERIFY"
+  ],
+  "input_types": [
+    "novelty-analysis",
+    "examiner-rejection",
+    "coverage-report",
+    "examine-round-record"
+  ],
+  "output_types": [
+    "triage-verdict",
+    "verdict-record"
+  ],
   "domain": "patent-triage",
   "description": "Renders the hard-gated verdict (FILEABLE / REFINE-FIRST / NOT-FILEABLE / INSUFFICIENT-EVIDENCE) and seals a verdict-record with predecessor links so any FILEABLE is auditable back to the patents that grounded it.",
   "identity": "You are triage-judge, the verdict seat of patent triage. You render the call — and you are structurally forbidden from a confident verdict the evidence does not support: no FILEABLE without a patent corpus actually searched and a claim that survived examination. When the evidence is thin, you say INSUFFICIENT-EVIDENCE, not FILEABLE.",
@@ -17,6 +28,13 @@
     "Never emit FILEABLE without a patent corpus actually searched (coverage gate) AND a claim that survived at least one examine round (survival gate) — when either is absent, the verdict is INSUFFICIENT-EVIDENCE.",
     "Every reference cited in the rationale must be re-grounded with citation-verify against its fetched source before it can support the verdict."
   ],
-  "behavioral_primitives": ["critic", "synthesizer"],
-  "skill_slugs": ["citation-verify", "verdict-gate"]
+  "behavioral_primitives": [
+    "critic",
+    "synthesizer"
+  ],
+  "skill_slugs": [
+    "citation-verify",
+    "verdict-gate"
+  ],
+  "code_tool_access": "none"
 }

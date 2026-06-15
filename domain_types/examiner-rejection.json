@@ -7,10 +7,21 @@
   "schema": {
     "type": "object",
     "properties": {
-      "rejections": { "type": "array" },
-      "all_cleared": { "type": "boolean" },
-      "statutes_checked": { "type": "array" }
+      "rejections": {
+        "type": "array"
+      },
+      "all_cleared": {
+        "type": "boolean"
+      },
+      "statutes_checked": {
+        "type": "array"
+      },
+      "caveat": {
+        "type": "string"
+      }
     }
   },
-  "required_fields": ["rejections"]
+  "required_fields": [
+    "rejections"
+  ]
 }

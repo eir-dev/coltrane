@@ -117,3 +117,39 @@ New verdict state: `triage-verdict.recommended` must enumerate
 5. Retire the v0 four into the new roster.
 
 Each slice merges when its acceptance contracts (the RED tests) go green.
+
+## Review resolutions (PR #173)
+
+Three reviews converged; the resolved forks (now RED contracts in the spec) and the
+construction decisions:
+
+- **`distance_score` is dropped.** A confidence number not traceable to a deterministic input
+  is the v0 failure mode — it reads like evidence and isn't. Replaced by
+  `element-mapping-matrix.coverage_fraction`, content-hash-reproducible from the matrix bytes.
+- **The coverage gate is a hard guard inside `triage-judge`, not an `eval_slug`.** A
+  construction-time constraint beats a grading-time check: "FILEABLE without ≥1 patent corpus"
+  must be structurally un-emittable, not flagged after the fact.
+- **The examine⇄amend loop is caller-driven**, with survival as a **predecessor chain**, not a
+  mutable counter. Each round seals an `examine_round_record { round_n, claim_state_sha,
+  rejection_state_sha, predecessor_sha, sha256 }`; `survival_count = walk(predecessor_sha)` is
+  byte-identically recomputable across gigs. A **`max_examine_rounds`** cap is required;
+  **K-exhausted ⇒ `INSUFFICIENT-EVIDENCE`** (an unbounded loop hides itself — each round looks
+  productive while cost runs).
+- **A `verdict-record` type** persists the verdict with predecessor links to
+  `disclosure_input_sha` + `coverage_report_sha` + final `examine_round_record_sha`, so any
+  `FILEABLE` is auditable back to the patents that grounded it. `triage-judge` cannot emit a
+  verdict without populating all three.
+- **The negative form of each gate is the load-bearing half.** "INSUFFICIENT *must fire* on
+  zero patents," "verdict *cannot* be FILEABLE when `survival_count == 0`," "draft phase
+  *cannot* run unless `recommended == FILEABLE`." The positive-form tests pass against an
+  implementation that silently never gates; the must-fire tests land in
+  `tests/patent_triage_v1_gates.test.ts` once the standard's I/O shape exists.
+- **Charter disambiguation (single-judge invariant):** `anticipation-mapper` emits *strictly
+  the matrix* — no rejection language; `patent-examiner` consumes the matrix and is the *only*
+  seat that reaches a rejection-or-clear verdict.
+- **`citation-verify` binds to `triage-judge` too**, not just `prior-art-scout` — the
+  snippet-overstatement failure bites whichever seat writes the verdict.
+- **Patent corpus: USPTO PatentsView** (free, structured, no key) for slice 1; add a keyed
+  corpus (Espacenet OPS / Lens) later only if coverage proves thin.
+- **OPEN is a reusable primitive**, not a v1-local thing — the third TDD state (GREEN / RED /
+  OPEN) belongs to the test substrate generally.

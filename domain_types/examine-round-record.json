@@ -1,26 +1,29 @@
 {
-  "slug": "invention-spec",
+  "slug": "examine-round-record",
   "version": 1,
-  "extends": "Signal",
+  "extends": "Interpretation",
   "domain": "patent-triage",
   "status": "active",
   "schema": {
     "type": "object",
     "properties": {
-      "title": {
+      "round_n": {
+        "type": "number"
+      },
+      "amended_claim": {
         "type": "string"
       },
-      "description": {
+      "claim_state_sha": {
         "type": "string"
       },
-      "repo_url": {
+      "rejection_state_sha": {
         "type": "string"
       },
-      "field_of_use": {
+      "predecessor_sha": {
         "type": "string"
       },
-      "filed_by": {
-        "type": "string"
+      "survived": {
+        "type": "boolean"
       },
       "caveat": {
         "type": "string"
@@ -28,6 +31,9 @@
     }
   },
   "required_fields": [
-    "description"
+    "round_n",
+    "claim_state_sha",
+    "rejection_state_sha",
+    "predecessor_sha"
   ]
 }

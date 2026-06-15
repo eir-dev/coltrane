@@ -1,22 +1,19 @@
 {
-  "slug": "failure-modes",
+  "slug": "examiner-rejection",
   "version": 1,
-  "extends": "Interpretation",
+  "extends": "Judgment",
   "domain": "patent-triage",
   "status": "active",
   "schema": {
     "type": "object",
     "properties": {
-      "invention_id": {
-        "type": "string"
-      },
-      "named_failure_modes": {
+      "rejections": {
         "type": "array"
       },
-      "boundary_conditions": {
-        "type": "array"
+      "all_cleared": {
+        "type": "boolean"
       },
-      "what_this_is_not": {
+      "statutes_checked": {
         "type": "array"
       },
       "caveat": {
@@ -25,6 +22,6 @@
     }
   },
   "required_fields": [
-    "named_failure_modes"
+    "rejections"
   ]
 }

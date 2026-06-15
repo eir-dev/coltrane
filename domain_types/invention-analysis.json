@@ -1,5 +1,5 @@
 {
-  "slug": "failure-modes",
+  "slug": "invention-analysis",
   "version": 1,
   "extends": "Interpretation",
   "domain": "patent-triage",
@@ -7,24 +7,27 @@
   "schema": {
     "type": "object",
     "properties": {
-      "invention_id": {
+      "real_contribution": {
         "type": "string"
       },
-      "named_failure_modes": {
+      "claimed_vs_actual": {
+        "type": "string"
+      },
+      "candidate_inventive_concepts": {
         "type": "array"
       },
-      "boundary_conditions": {
-        "type": "array"
-      },
-      "what_this_is_not": {
+      "embodiments": {
         "type": "array"
       },
       "caveat": {
         "type": "string"
+      },
+      "enablement_gaps": {
+        "type": "array"
       }
     }
   },
   "required_fields": [
-    "named_failure_modes"
+    "real_contribution"
   ]
 }

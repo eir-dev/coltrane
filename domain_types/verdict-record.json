@@ -1,5 +1,5 @@
 {
-  "slug": "triage-verdict",
+  "slug": "verdict-record",
   "version": 1,
   "extends": "Verdict",
   "domain": "patent-triage",
@@ -7,9 +7,6 @@
   "schema": {
     "type": "object",
     "properties": {
-      "invention_id": {
-        "type": "string"
-      },
       "recommended": {
         "type": "string",
         "enum": [
@@ -19,16 +16,13 @@
           "INSUFFICIENT-EVIDENCE"
         ]
       },
-      "rationale": {
+      "disclosure_input_sha": {
         "type": "string"
       },
-      "tests_passed": {
-        "type": "array"
+      "coverage_report_sha": {
+        "type": "string"
       },
-      "tests_failed": {
-        "type": "array"
-      },
-      "next_step": {
+      "examine_round_record_sha": {
         "type": "string"
       },
       "caveat": {
@@ -37,7 +31,8 @@
     }
   },
   "required_fields": [
-    "recommended",
-    "rationale"
+    "disclosure_input_sha",
+    "coverage_report_sha",
+    "examine_round_record_sha"
   ]
 }

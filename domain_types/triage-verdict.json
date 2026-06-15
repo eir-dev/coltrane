@@ -8,7 +8,7 @@
     "type": "object",
     "properties": {
       "invention_id": { "type": "string" },
-      "recommended": { "type": "string" },
+      "recommended": { "type": "string", "enum": ["FILEABLE", "REFINE-FIRST", "NOT-FILEABLE", "INSUFFICIENT-EVIDENCE"] },
       "rationale": { "type": "string" },
       "tests_passed": { "type": "array" },
       "tests_failed": { "type": "array" },

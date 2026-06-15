@@ -9,7 +9,7 @@
     "properties": {
       "invention_id": { "type": "string" },
       "nearest_prior_art": { "type": "array" },
-      "distance_score": { "type": "number" },
+      "coverage_fraction": { "type": "number" },
       "verdict": { "type": "string" },
       "rationale": { "type": "string" }
     }

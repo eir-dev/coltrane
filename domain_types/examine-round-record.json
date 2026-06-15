@@ -8,6 +8,7 @@
     "type": "object",
     "properties": {
       "round_n": { "type": "number" },
+      "amended_claim": { "type": "string" },
       "claim_state_sha": { "type": "string" },
       "rejection_state_sha": { "type": "string" },
       "predecessor_sha": { "type": "string" },

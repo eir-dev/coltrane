@@ -1,0 +1,25 @@
+name: pr-verify
+
+# The green-CI gate every pull request must pass before a human governor may merge it.
+# This is the enforcement substrate for the institution's dev-loop law: a change lands only
+# via a pull request whose CI is green. Runs on the stock node-shipped npm (10.x) — the version
+# the pack-audit tests target — exactly like publish.yml's verify step.
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run verify

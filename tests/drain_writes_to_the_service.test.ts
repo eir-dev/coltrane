@@ -60,6 +60,29 @@ describe("the drain writes to the service, holding one credential", () => {
     vi.unstubAllGlobals();
     delete process.env["COLTRANE_DRAIN_URL"];
     delete process.env["COLTRANE_DRAIN_KEY"];
+    delete process.env["COLTRANE_INSTANCE"];
+  });
+
+  // The store's output sinks resolve a token hash and check a scope, and stop — so any live drain
+  // key can currently write outputs for any gig of its org, including gigs it never claimed. The
+  // git-credential path already checks key + instance + live lease, so the store knows how; the
+  // write path never asked. Naming ourselves on every write is the half a client can do, and it
+  // ships AHEAD of the gate so the gate needs no second engine release.
+  it("names the instance it is, so the store can gate on a live lease", async () => {
+    process.env["COLTRANE_INSTANCE"] = "coltrane-drain-eirlabs";
+    await sealOne();
+    for (const [, init] of fetchMock.mock.calls as unknown as [string, RequestInit][]) {
+      expect((init.headers as Record<string, string>)["X-Coltrane-Instance"]).toBe(
+        "coltrane-drain-eirlabs",
+      );
+    }
+  });
+
+  it("claims no instance when it is not one — a local run holds no lease", async () => {
+    await sealOne();
+    for (const [, init] of fetchMock.mock.calls as unknown as [string, RequestInit][]) {
+      expect((init.headers as Record<string, string>)["X-Coltrane-Instance"]).toBeUndefined();
+    }
   });
 
   it("sends the row and the artifact to the service, each as a bearer and nothing else", async () => {

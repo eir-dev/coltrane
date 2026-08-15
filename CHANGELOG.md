@@ -35,6 +35,18 @@ the MCP handshake reports the constant rather than a hardcoded literal.
   every path is built from the ORIGIN, so a suffix surviving a redeploy cannot produce
   `/rest/v1/storage/v1/…` the way appending to it did.
 
+### Added
+
+- **Every drain write now names the instance it comes from**, as `X-Coltrane-Instance`, taken from
+  `COLTRANE_INSTANCE` and omitted when that is unset (a local `coltrane work` run holds no lease and
+  should not claim one).
+
+  This is groundwork the store does not yet use. Today the output sinks resolve a token hash and
+  check a scope, and stop — so any live drain key can write outputs for **any gig of its org**,
+  including gigs it never claimed. `coltrane_drain_repo_for_lease` already checks key + instance +
+  live lease, so the store knows how; the write path never asked. Shipping the header ahead of the
+  gate means the gate needs no second engine release.
+
 ### Fixed
 
 - **The artifact upload has never once succeeded.** It POSTed to

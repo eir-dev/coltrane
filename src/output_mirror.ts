@@ -338,11 +338,31 @@ function serviceOrigin(): string {
   return origin;
 }
 
-/** POST to the service, with the drain's one credential in the one place it belongs. */
+/**
+ * POST to the service, with the drain's one credential in the one place it belongs.
+ *
+ * THE INSTANCE HEADER IS NOT DECORATION. Today the store's output sinks resolve a token hash and
+ * check a scope — and stop. They do not ask which instance is writing or which gig it is writing
+ * for, which means any live drain key can write outputs for any gig of its org, at any time,
+ * including gigs it never claimed. `coltrane_drain_repo_for_lease` — the git-credential path —
+ * already asks all three, so the store knows how; the write path simply never did.
+ *
+ * Stating it here is the half a client can do. A drain that names itself on every write lets the
+ * store gate on a live lease WITHOUT another engine release, which is the whole reason it ships
+ * ahead of the gate rather than with it. The store ignoring it today is expected.
+ *
+ * Absent when COLTRANE_INSTANCE is unset — a local `coltrane work` run holds no lease and is not
+ * pretending to.
+ */
 async function drainPost(path: string, key: string, body: unknown): Promise<Response> {
+  const instance = process.env["COLTRANE_INSTANCE"];
   return fetch(`${serviceOrigin()}${path}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      ...(instance ? { "X-Coltrane-Instance": instance } : {}),
+    },
     body: JSON.stringify(body),
   });
 }

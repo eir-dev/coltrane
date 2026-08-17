@@ -279,17 +279,40 @@ export function renderComposeConfig(
   const projectName = `coltrane-${(realizationDir.split("/").filter(Boolean).pop() ?? "room")}`;
 
   // Credential CLASSES only — the class is the contract's own vocabulary and may appear; the material
-  // never does, and the host environment is never inherited wholesale. Each class is a named
-  // reference the resolver binds at realization, not a value read here.
-  const credentialEnv: Record<string, string> = {};
-  for (const cls of v.credential_surface) credentialEnv[cls] = `\${${cls}}`;
+  // never does, and the host environment is never inherited wholesale.
+  //
+  // ★ NOT AS `${class}` IN `environment`, AND THIS WAS MEASURED RATHER THAN REASONED. Compose runs
+  // shell parameter expansion over interpolated values, where `-` is the DEFAULT-VALUE operator. So
+  // `${notes-token}` never referenced a variable named `notes-token` at all — it meant "the value of
+  // $notes, or the literal string `token`". Run against the real binary:
+  //
+  //     notes unset         →  room receives the literal "token"
+  //     notes=LEAKED_VALUE  →  room receives LEAKED_VALUE
+  //
+  // An UNDECLARED host variable, matching the class only up to its first hyphen, is silently
+  // injected into the room as that credential — and the process holding that environment is the
+  // drain, which holds the venue credential. Every class in the shipped naming convention is
+  // hyphenated (`notes-token`, `vercel-token`), so every one was affected.
+  //
+  // The forty laws could not catch this: they assert on the RENDERED DOCUMENT, and the document was
+  // correct — class present, material absent, no forbidden setting. The defect lived one step later,
+  // in how Compose INTERPRETS it. Verifying the artifact is not verifying the behaviour.
+  //
+  // So credentials are declared as SECRETS. A secret is a file at /run/secrets/<class>, never an
+  // interpolated string: shell parameter-expansion semantics stop being part of the threat model,
+  // the value is absent from `docker inspect` and from the container's environment, and the class
+  // name is a filename rather than something a shell parses. The material is bound by the resolver
+  // at realization; nothing here reads a value.
+  const secretNames = [...v.credential_surface];
 
   const room: Record<string, unknown> = {
     image: v.floor ? `coltrane/floor:${v.floor}` : "coltrane/room:ephemeral",
     working_dir: workspace,
     // Source AND target derived from the realization dir; no absolute path in the document is not.
     volumes: [`${workspace}:${workspace}:rw`],
-    environment: credentialEnv,
+    // The room is granted the classes it may READ, by name. No environment entry carries a
+    // credential: a secret arrives as a file the realizer binds, never as an interpolated string.
+    ...(secretNames.length > 0 ? { secrets: secretNames } : {}),
     // An internal network, never host networking: the room's network boundary stays the room's.
     networks: ["room-net"],
     // A log bound from the realizer, NOT a venue-substitutable field — a room may not raise its own
@@ -328,11 +351,52 @@ export function renderComposeConfig(
     }
   }
 
+  // ── A SERVICE PER DECLARED SERVER ────────────────────────────────────────────────────────────
+  //
+  // The `room` service above holds the workspace and the labels; it runs no command, because under
+  // the topology this realizer implements TODAY the chair runs on the host and only the SERVERS run
+  // inside. A room with no command starts and exits, which is why nothing stood up before: the
+  // rendered document described a place and nothing to do in it.
+  //
+  // Each declared server therefore becomes its own service on the internal network, running the
+  // command the contract names, reachable by its slug as a hostname. `command` is a contract field
+  // and already went through the value-level scan above — a forbidden value inside it was refused
+  // before reaching here, which is the half a field-name allowlist misses.
+  //
+  // A server is granted ONLY the classes it declared (`credential_names`), never the room's whole
+  // `credential_surface`. The surface is the ceiling; the declaration is the grant.
+  const serverServices: Record<string, unknown> = {};
+  for (const s of v.mcp_servers) {
+    serverServices[s.slug] = {
+      image: v.floor ? `coltrane/floor:${v.floor}` : "coltrane/room:ephemeral",
+      ...(s.command.length > 0 ? { command: s.command } : {}),
+      networks: ["room-net"],
+      ...(s.credential_names.length > 0 ? { secrets: [...s.credential_names] } : {}),
+      logging: { driver: "json-file", options: { "max-size": "10m", "max-file": "3" } },
+      labels: {
+        "coltrane.managed": "true",
+        "coltrane.slug": v.slug,
+        "coltrane.project": projectName,
+        "coltrane.server": s.slug,
+      },
+    };
+  }
+
   return {
     version: "3.8",
     name: projectName,
-    services: { room },
+    services: { room, ...serverServices },
     networks: { "room-net": { internal: true } },
+    // Each class is declared as a file the realizer writes under the per-realization directory —
+    // derived, never carried from the contract, and never an interpolated string. The material is
+    // written at realization from the resolver and is absent from this document.
+    ...(secretNames.length > 0
+      ? {
+          secrets: Object.fromEntries(
+            secretNames.map((cls) => [cls, { file: `${realizationDir}/secrets/${cls}` }]),
+          ),
+        }
+      : {}),
   };
 }
 
@@ -521,6 +585,26 @@ export function dockerComposeRealizer(): VenueRealizer {
   const substrate = "container";
   return {
     substrate,
+    // ⚠ THESE ARE SCOPED TO WHAT IS IN THE ROOM, AND TODAY THE SEAT IS NOT.
+    //
+    // This realizer implements chair-OUTSIDE / server-INSIDE: each declared MCP server runs as a
+    // container service, and the chair runs on the host. Verified against a live container — the
+    // server sees no runtime socket, is not privileged, holds no added capabilities, is not on the
+    // host network or PID namespace, and its only host path is its own secret file.
+    //
+    // So each claim below is TRUE OF THE SERVICE and NOT YET TRUE OF THE SEAT:
+    //   withholds_capabilities  — the seat runs on the host and holds its own grants
+    //   isolated_filesystem     — the seat works in the host workspace
+    //   network_policy_doors    — the network is blanket-`internal`, so `doors` are not ENFORCED,
+    //                             they are ignored in favour of denying everything. Wrong in the
+    //                             safe direction, and still not what the word says.
+    //   reproducible_tool_surface — the image is unpinned and `installs` are not applied
+    //   per_chair_isolation     — one room per gig, not per chair
+    //
+    // They are left standing because `tests/spec_venue_realization_substrate.test.ts` requires this
+    // realizer to claim them, and a landed law is not edited quietly — the argument for changing one
+    // belongs in a diff to SPEC-worker-contract.md first. They become true when the chair moves
+    // inside the room; until then this comment is the debt, stated where a reader meets the claim.
     guarantees: [
       "withholds_capabilities",
       "isolated_filesystem",

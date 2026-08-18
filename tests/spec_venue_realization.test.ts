@@ -88,7 +88,7 @@ const realizer = async (): Promise<RealizerModule> =>
 /** The containerized realizer and the renderer live in the same module; the laws that assert the
  *  docker-exec channel and the room's holding command reach for them directly. */
 interface ContainerModule {
-  dockerComposeRealizer(): {
+  dockerComposeRealizer(opts?: { run?: () => void }): {
     realize(
       venue: unknown,
       credentialResolver: CredentialResolver,
@@ -136,6 +136,13 @@ const NOTES_ROOM = {
   ],
   lifecycle: { policy: "ephemeral" as const },
 };
+
+/** These laws are about what the realizer DECIDES — the shape it emits, the venue it refuses, the
+ *  artifacts it records. None of that is a claim about docker, and CI has no daemon, so they run
+ *  against a runner that records instead of executing. The liveness claim is not made here and
+ *  cannot be: tests/spec_venue_room_live.test.ts takes the REAL default and runs the emitted
+ *  transport verbatim against a standing room. */
+const NO_DAEMON = { run: () => {} };
 
 const noCredentials: CredentialResolver = async () => ({});
 
@@ -377,14 +384,16 @@ describe("GAP 2 — a chair reaches a tool inside the containerized room", () =>
   it("the containerized realizer emits the docker-exec stdio shape for a declared server", async () => {
     const { dockerComposeRealizer } = await containerModule();
     expect(dockerComposeRealizer, "the import is the specification").toBeTypeOf("function");
-    const handle = await dockerComposeRealizer().realize(NOTES_ROOM, noCredentials, {
+    const handle = await dockerComposeRealizer(NO_DAEMON).realize(NOTES_ROOM, noCredentials, {
       gigId: CONTAINERIZED_GIG,
       engineServers,
       probe: async () => ["search", "read"],
     });
     expect(handle.mcpServerConfigs["notes"]).toEqual({
       command: "docker",
-      args: ["exec", "-i", "-e", "COLTRANE_SERVER_DIRECT=1", ROOM_CONTAINER, "node", "dist/src/server_entry.js"],
+      // ABSOLUTE. The room service's working_dir is the workspace, so a relative entry path
+      // resolves under the mount and node cannot find it — measured against a live room, not read.
+      args: ["exec", "-i", "-e", "COLTRANE_SERVER_DIRECT=1", ROOM_CONTAINER, "node", "/app/dist/src/server_entry.js"],
     });
     await handle.teardown();
   });
@@ -396,7 +405,7 @@ describe("GAP 2 — a chair reaches a tool inside the containerized room", () =>
   it("every containerized emission carries COLTRANE_SERVER_DIRECT=1", async () => {
     const { dockerComposeRealizer } = await containerModule();
     expect(dockerComposeRealizer, "the import is the specification").toBeTypeOf("function");
-    const handle = await dockerComposeRealizer().realize(NOTES_ROOM, noCredentials, {
+    const handle = await dockerComposeRealizer(NO_DAEMON).realize(NOTES_ROOM, noCredentials, {
       gigId: CONTAINERIZED_GIG,
       engineServers,
       probe: async () => ["search", "read"],

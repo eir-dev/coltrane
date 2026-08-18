@@ -20,16 +20,20 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
 
-function dockerAvailable(): boolean {
+/** A daemon is not enough: the room is realized ON `coltrane/room:ephemeral`, which is BUILT from
+ *  Dockerfile.room and published nowhere. A host with docker but without that image sends compose to
+ *  a registry, where the pull is denied — which is what a first CI run reported, correctly. So the
+ *  gate is daemon AND image, and `.ci/room-image` builds it for the job that runs these. */
+function roomRealizable(): boolean {
   try {
-    execFileSync("docker", ["info"], { stdio: "ignore", timeout: 15_000 });
+    execFileSync("docker", ["image", "inspect", "coltrane/room:ephemeral"], { stdio: "ignore", timeout: 30_000 });
     return true;
   } catch {
     return false;
   }
 }
 
-const HAVE_DOCKER = dockerAvailable();
+const HAVE_DOCKER = roomRealizable();
 
 const NOTES_ROOM = {
   slug: "notes-room-v1",

@@ -308,6 +308,14 @@ export function renderComposeConfig(
   const room: Record<string, unknown> = {
     image: v.floor ? `coltrane/floor:${v.floor}` : "coltrane/room:ephemeral",
     working_dir: workspace,
+    // The room HOLDS. Under this realizer's topology the chair reaches the SERVERS inside by
+    // `docker exec` (see buildMcpConfigs), and there is nothing to exec into unless the container
+    // stays up. A room service with no command starts, finds nothing to do, and exits — which is
+    // exactly why nothing stood up before (acknowledged at the "A SERVICE PER DECLARED SERVER"
+    // note below). `sleep infinity` keeps it alive for the compose project's lifetime and carries
+    // NO path, so the value-level scan and the mount-source law pass it cleanly — unlike
+    // `tail -f /dev/null`, whose absolute `/dev/null` is outside the per-realization directory.
+    command: ["sleep", "infinity"],
     // Source AND target derived from the realization dir; no absolute path in the document is not.
     volumes: [`${workspace}:${workspace}:rw`],
     // The room is granted the classes it may READ, by name. No environment entry carries a
@@ -432,11 +440,34 @@ const HOST_ARTIFACTS = new Map<string, RealizedArtifact>();
 const INSTANCE = `instance-${process.pid}`;
 let ARTIFACT_SEQ = 0;
 
-function buildMcpConfigs(v: VenueOutput, opts: RealizeOpts): Promise<Record<string, unknown>> {
+/** Builds the spawn's MCP map. `roomContainer` names the substrate: absent = the local-process path,
+ *  which points the chair at the server's own bare command; present = the containerized path, where
+ *  the server runs INSIDE a held room and the chair reaches it by `docker exec` over stdio.
+ *
+ *  ★ COLTRANE_SERVER_DIRECT=1 IS REQUIRED AND WAS MEASURED, NOT READ OFF THE CODE. Without it,
+ *  dist/src/server_entry.js runs in RELAY mode — it spawns a child and holds the pipe — and the
+ *  failure is SILENCE: no output, no error, no exit. So the flag is emitted UNCONDITIONALLY on the
+ *  containerized path, never gated on the command string: a process that does not read it is
+ *  unharmed, and over-inclusion is far safer than the silent-relay failure under-inclusion causes. */
+function buildMcpConfigs(
+  v: VenueOutput,
+  opts: RealizeOpts,
+  roomContainer?: string,
+): Promise<Record<string, unknown>> {
   return (async () => {
     const configs: Record<string, unknown> = { ...(opts.engineServers ?? {}) };
     for (const server of v.mcp_servers) {
       if (opts.probe) await opts.probe({ slug: server.slug });
+      if (roomContainer && server.transport === "stdio") {
+        // The proven path: `docker exec -i -e COLTRANE_SERVER_DIRECT=1 <container> node
+        // dist/src/server_entry.js` speaks MCP over stdio into the running room — no published
+        // port, no HTTP server, no network. sse ({url}) servers are left to their existing handling.
+        configs[server.slug] = {
+          command: "docker",
+          args: ["exec", "-i", "-e", "COLTRANE_SERVER_DIRECT=1", roomContainer, "node", "dist/src/server_entry.js"],
+        };
+        continue;
+      }
       configs[server.slug] = { command: server.command[0], args: server.command.slice(1) };
     }
     return configs;
@@ -653,7 +684,13 @@ export function dockerComposeRealizer(): VenueRealizer {
       const requested = v.mcp_servers.flatMap((s) => s.credential_names).filter((n) => v.credential_surface.includes(n));
       await credentialResolver(requested);
 
-      const configs = await buildMcpConfigs(v, opts);
+      // The room's container name is the docker-compose default {projectName}-{serviceName}-1. The
+      // renderer derives projectName as coltrane-gig-<gigId8> (its realizationDir's last segment) and
+      // the room service is the fixed 'room', so the container is deterministic without an explicit
+      // container_name field — one that would be a new rendered value to survive the mount-source and
+      // substitution-seam laws, buying determinism the convention already provides.
+      const roomContainer = `coltrane-gig-${opts.gigId.slice(0, 8)}-room-1`;
+      const configs = await buildMcpConfigs(v, opts, roomContainer);
       // Render for its refusal side-effects too: a container realize refuses a smuggled venue for the
       // same reason the renderer does, before anything reaches PLAYING.
       renderComposeConfig(v, {

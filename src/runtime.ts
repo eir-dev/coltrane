@@ -99,6 +99,18 @@ export interface AgentInvocationContext {
   // merely the policy layer. Absent = a venue with no declared servers, or no realizer wired: the
   // spawn reaches only the deployment's base + grant-resolved servers, exactly as before.
   substrateMcpConfigs?: Readonly<Record<string, unknown>> | undefined;
+  // ── the SEAT runs INSIDE the room (seat → spawn wiring) ────────────────────────
+  // When the realized substrate is a seat-bearing room (its venue selects a `floor` image that
+  // carries the toolchain and the agent binary — Dockerfile.floor, the deliberate opposite of the
+  // production-only Dockerfile.room), runGig threads the room's per-realization workspace and its
+  // container name here. The Claude invoker then wraps the chair as
+  // `docker exec -i -w <workspace> <container> claude …`, so the seat runs INSIDE the room with the
+  // workspace as its cwd. Isolation is by construction: two concurrent gigs realize into distinct
+  // rooms with distinct workspaces, so neither seat can observe or overwrite the other's tree, and
+  // reclamation is the venue's ephemeral lifecycle rather than an operator hand-reaping worktrees.
+  // The wrap happens AFTER the confinement block that computes effective_tools, so moving the seat
+  // NARROWS it by the room and never widens it. Absent = the seat runs on the host, unchanged.
+  seatExec?: { container: string; workspace: string } | undefined;
   // #turn-budget — the seated chair's turn budget, threaded from the chair (exactly as `depth`
   // is). The invoker resolves `--max-turns` as ctx.turn_budget ?? agent.max_tool_calls ?? engine
   // default. Absent = the agent's own cap stands; 0 is a deliberate hard floor, not a fall-through.
@@ -330,6 +342,19 @@ export interface RunDeps {
    * away; noticing a silent $6 is not.
    */
   resume_from?: string | undefined;
+  /**
+   * #20 — the caller supplied NO --input on this (resume) dispatch. Default-false semantics:
+   * absent or false means "a value WAS supplied" (even an explicit `{}`); true means "the caller
+   * stated no payload at all". It exists for the same reason `depth?: Depth | undefined` does —
+   * an omitted value must be distinguishable from a stated one. The dispatch payload is never
+   * carried in a checkpoint (only its hash is; see src/reuse.ts RunIdentity.gig_input_sha), so an
+   * omitted --input cannot be reconstructed. Instead, on a resume whose every remaining chair is
+   * human, the gate INHERITS the checkpoint's recorded gig_input_sha rather than refusing on the
+   * drift to sha256('{}'). A SUPPLIED value is never inherited, so a disagreeing --input still
+   * gates; and while any remaining chair is a MODEL chair the gate is unchanged. worker.ts passes
+   * the real claim input and never sets this, so the gate stays fully active for worker runs.
+   */
+  gig_input_omitted?: boolean | undefined;
   /**
    * The chair-level reuse cache. Presence IS the opt-in — the runtime never constructs one —
    * and it enables BOTH reads and writes.
@@ -1405,27 +1430,93 @@ export async function runGig(
     // THE GATE. A resume into a moved genome would have chairs from genome B consuming sealed
     // outputs from genome A, and nothing in input_shas / genome_hash / run_fingerprint would
     // record that it happened — the manifest would describe a system that never existed.
-    const drift = runIdentityMismatch(cp.identity, identity());
+    //
+    // SCOPED RELAXATION (gig ce902971): producers_sha — the fold of every producing agent's
+    // definition — is NOT a resume gate when every chair still to run is human. Those producers
+    // already produced; their sealed, hashed outputs cannot change under a definition edit, and a
+    // producing agent's definition cannot change what a PERSON is being asked to decide. Without
+    // this, a parked gig becomes permanently unapprovable the moment any agent definition moves
+    // after it parks. This is the ONLY relaxation and its ONLY justification is 'this input cannot
+    // affect what remains to run': every other identity field still gates, and producers_sha
+    // itself still gates the moment ANY remaining chair is a model chair. The remaining-chair set
+    // is derived synchronously from data already in scope (cp.roles, standard.phases), so the gate
+    // still fires before the first await.
+    //
+    // The predicate is two-valued — a chair is human or it is a model chair. If a future
+    // non-human, agent-less chair type is introduced it MUST be re-examined here: it must not
+    // silently inherit this waiver.
+    const sealedRoles = new Set(cp.roles.map((r) => r.role));
+    const remainingChairs = standard.phases.flatMap((p) => p.chairs).filter((c) => !sealedRoles.has(c.role));
+    const allRemainingHuman =
+      remainingChairs.length > 0 &&
+      remainingChairs.every((c) => c.human === true && (c.agent_slug ?? "") === "");
+    // #19 — an OMITTED --depth is not a DISAGREEMENT. When the operator states no depth,
+    // `deps.depth` is undefined and identity() resolves it to "" — collapsing "I did not say"
+    // and "I said something different" into one value that then reads as a mismatch against a
+    // checkpoint written with a stated depth. The checkpoint already records its depth (a
+    // first-class run-identity field), so an unstated depth INHERITS it: substitute the
+    // checkpoint's depth as the effective comparison value ONLY when deps.depth is undefined.
+    // An EXPLICIT depth still compares as-is, so a skim resume of a deep checkpoint still
+    // refuses (#237: depth shapes what the model is asked for; a skim half stitched to a deep
+    // half is a real defect). This never MANUFACTURES a false mismatch and it is NOT a waiver
+    // of a stated one — see the note beside the 'never waived' rule in src/reuse.ts. identity()
+    // stays a pure function of deps, so `cur = identity()` below and every non-comparison use
+    // still see the operator's actual (undefined→"") depth.
+    // #20 — an OMITTED --input is no more a DISAGREEMENT than an omitted --depth, and the same
+    // omission-vs-conflict distinction applies. A checkpoint stores ONLY identity.gig_input_sha —
+    // a hash of the canonical dispatch payload — and NEVER the payload itself (see src/reuse.ts,
+    // RunIdentity.gig_input_sha), so the omitted payload cannot be "recovered from the checkpoint";
+    // it is INHERITED. The producers already consumed the input and sealed their hashed outputs, so
+    // when every remaining chair is human — approving already-sealed work it does not read — an
+    // unstated --input inherits the checkpoint's recorded gig_input_sha. A SUPPLIED value is never
+    // substituted (deps.gig_input_omitted is false), so a disagreeing --input still drives a
+    // refusal; and while any remaining chair is a MODEL chair (allRemainingHuman false) the payload
+    // is exactly what that chair will consume, so gig_input_sha keeps gating unchanged. identity()
+    // itself stays untouched, so `cur = identity()` below and every checkpoint write still see the
+    // operator's actual (omitted→{}) payload hash — the substitution is only the comparison value.
+    const current = identity();
+    const inheritDepth = deps.depth === undefined;
+    const inheritGigInput = allRemainingHuman && deps.gig_input_omitted === true;
+    const currentForGate: RunIdentity = {
+      ...current,
+      ...(inheritDepth ? { depth: cp.identity.depth } : {}),
+      ...(inheritGigInput ? { gig_input_sha: cp.identity.gig_input_sha } : {}),
+    };
+    const drift = runIdentityMismatch(cp.identity, currentForGate, { waiveProducers: allRemainingHuman });
     if (drift.length > 0) {
       // DIAGNOSTIC HONESTY, not a widened resume. The genome genuinely moved, so the refusal
-      // stands — but the operator's real fix is "resume from the build that wrote this", and
-      // nothing told them which build that was. `engine_version` (stamped by every build since
-      // this landed) names it; a checkpoint from before this field says so plainly rather than
-      // crash. Lead with the version + the action; the raw before/after hashes still ride in
+      // stands — but the refusal must send the operator to the thing that ACTUALLY changed, not
+      // to a guess. When the producing and current engine versions DIFFER, "resume from the build
+      // that wrote this" is that thing, and `engine_version` names it. When they are IDENTICAL the
+      // old prose ("resume from a <version> build") named a version that already matched — sending
+      // the reader to verify a correct build before they reached the drift bracket. So when the
+      // versions agree, name the fields that drifted instead, drawn from the SAME `drift` list that
+      // refused (never a second, re-derived one). The raw before/after hashes always ride in
       // `drift` for a builder who wants them.
       const cur = identity();
-      const wroteBy = cp.engine_version
-        ? `coltrane ${cp.engine_version}`
-        : "an earlier build (engine version unrecorded)";
-      const resumeAction = cp.engine_version
-        ? `Resume from a ${cp.engine_version} build, or re-dispatch cold`
-        : "Resume from the matching build, or re-dispatch cold";
-      throw new ResumeRefused(
-        gig_id,
-        `this checkpoint was written by ${wroteBy} (genome_hash ${cp.identity.genome_hash}); ` +
-          `the current build is coltrane ${COLTRANE_VERSION} (genome_hash ${cur.genome_hash}). ${resumeAction}`,
-        drift,
-      );
+      // Each drift entry reads `<field>: checkpoint="..." current="..."` — the field is the token
+      // before the first ':'. This is the authoritative list `runIdentityMismatch` already returned;
+      // it is formatted here, never recomputed, so prose and refusal answer to one computation.
+      const driftedFields = drift.map((d) => d.slice(0, d.indexOf(":")));
+      let why: string;
+      if (cp.engine_version === COLTRANE_VERSION) {
+        why =
+          `this checkpoint and the current build are both coltrane ${COLTRANE_VERSION}, but the run ` +
+          `identity moved under that same version: ${driftedFields.join(", ")} changed since the ` +
+          `checkpoint was written (raw before/after values below). Re-dispatch cold, or restore the ` +
+          `prior ${driftedFields.join("/")} to resume`;
+      } else if (cp.engine_version) {
+        why =
+          `this checkpoint was written by coltrane ${cp.engine_version} (genome_hash ${cp.identity.genome_hash}); ` +
+          `the current build is coltrane ${COLTRANE_VERSION} (genome_hash ${cur.genome_hash}). ` +
+          `Resume from a ${cp.engine_version} build, or re-dispatch cold`;
+      } else {
+        why =
+          `this checkpoint was written by an earlier build (engine version unrecorded) ` +
+          `(genome_hash ${cp.identity.genome_hash}); the current build is coltrane ${COLTRANE_VERSION} ` +
+          `(genome_hash ${cur.genome_hash}). Resume from the matching build, or re-dispatch cold`;
+      }
+      throw new ResumeRefused(gig_id, why, drift);
     }
 
     const rolesInStandard = new Set(standard.phases.flatMap((p) => p.chairs.map((c) => c.role)));
@@ -2379,6 +2470,11 @@ export async function runGig(
           // realized transports (docker-exec stdio configs) so the invoker points the spawn at the
           // servers INSIDE the room. Absent otherwise — the substrate-less path is unchanged.
           ...(gigSubstrate ? { substrateMcpConfigs: gigSubstrate.mcpServerConfigs } : {}),
+          // The seat → spawn wire: when the substrate stood up a SEAT-BEARING room (a floor image
+          // carrying the toolchain), hand the chair the room's workspace + container so the invoker
+          // runs the seat INSIDE the room with the workspace as cwd. Absent when the room is the
+          // production-only room image (no seat runs there) — the host-spawn path is unchanged.
+          ...(gigSubstrate?.seat ? { seatExec: gigSubstrate.seat } : {}),
           onEvent: (ev) => {
             sink.fold(ev);
             emit({ type: "agent_event", phase: phaseName, role: chair.role, event: ev });
@@ -2542,15 +2638,23 @@ export async function runGig(
     // state that cannot be reconciled. Deciding first makes a chair all-or-nothing.
     const resolved: Array<{ spec: (typeof output_specs)[number]; slice: Record<string, unknown> }> = [];
     for (const spec of output_specs) {
-      const keyed = data[spec.domain_type] as Record<string, unknown> | undefined;
-      const slice = keyed !== undefined && keyed !== null ? keyed : single ? data : undefined;
-      if (slice === undefined || slice === null) continue;
-      if (typeof slice !== "object" || slice === null) {
-        throw new RuntimeError(
-          `chair "${chair.role}" output "${spec.domain_type}" must be a JSON object, got ${typeof slice}`,
-        );
+      const keyed = data[spec.domain_type];
+      const raw = keyed !== undefined && keyed !== null ? keyed : single ? data : undefined;
+      if (raw === undefined || raw === null) continue;
+      // MULTI-RECORD SEAL. captureOutputWrites hands the runtime a LIST of records per declared type
+      // — a chair may seal MANY records of one type (gig 8baced9d's lineage scout made 15 accepted
+      // output_write calls; the old last-wins collapse sealed 1). An ARRAY here is that list, and the
+      // loop seals one record per element. A bare object is one record — the skill-backed path and
+      // the single-output fallback still hand a plain object, so single-seal chairs are untouched.
+      const slices = Array.isArray(raw) ? raw : [raw];
+      for (const slice of slices) {
+        if (typeof slice !== "object" || slice === null || Array.isArray(slice)) {
+          throw new RuntimeError(
+            `chair "${chair.role}" output "${spec.domain_type}" must be a JSON object, got ${Array.isArray(slice) ? "array" : slice === null ? "null" : typeof slice}`,
+          );
+        }
+        resolved.push({ spec, slice: slice as Record<string, unknown> });
       }
-      resolved.push({ spec, slice: slice as Record<string, unknown> });
     }
     // backfillShas refuses an ambiguous provenance field. Run it over EVERY slice up front so
     // that throw also lands before the first write, rather than midway through them.

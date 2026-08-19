@@ -875,10 +875,18 @@ async function runImpl(slug: string, args: Record<string, unknown>, deps: Server
         if (reuseOn && !deps.reuse) {
           return { ok: false, requires_approval: approval, error: `gig_dispatch: reuse was requested but this server has no reuse store wired` };
         }
+        // #20 — the CLI signals an OMITTED --input as a boolean on args, so a human-only resume can
+        // inherit the checkpoint's gig_input_sha instead of drifting to sha256('{}') and refusing.
+        // It is advertised in gig_dispatch's input_schema (src/mcp.ts): a control the handler reads
+        // must be discoverable by a caller (#234). Only true when the caller stated no payload; an
+        // explicit `{}` is a supplied value and leaves this false, so a disagreeing payload still
+        // gates (see src/runtime.ts).
+        const gigInputOmitted = args["gig_input_omitted"] === true;
         const reuseWiring = {
           ...(deps.checkpoints ? { checkpoints: deps.checkpoints } : {}),
           ...(resumeArg !== undefined ? { resume_from: resumeArg } : {}),
           ...(reuseOn && deps.reuse ? { reuse: deps.reuse } : {}),
+          ...(gigInputOmitted ? { gig_input_omitted: true } : {}),
         };
 
         // ── the human seat's door ────────────────────────────────────────────────────────
@@ -1384,7 +1392,12 @@ async function runImpl(slug: string, args: Record<string, unknown>, deps: Server
           // plain string slugs. Now: when an entry is a string or a slug-only
           // object, look it up in deps.agents (populated by bootstrap from the
           // loaded genome). Full Agent objects are passed through unchanged.
-          const sAgentsRaw = (args["agents"] as unknown[]) ?? [];
+          // The input_schema advertises BOTH keys: `agents` is the compose-input shape; `agent_slugs`
+          // is the shape the PERSISTED standards/<slug>.json file carries (written at line ~1413).
+          // Reading only `agents` made `agent_slugs` a silent no-op that failed via the misleading
+          // "agent not found" error — and broke the read-file/re-compose round-trip. Fall back to
+          // `agent_slugs` when `agents` is absent so the documented parameter actually composes.
+          const sAgentsRaw = (args["agents"] as unknown[]) ?? (args["agent_slugs"] as unknown[]) ?? [];
           const sAgents: Agent[] = sAgentsRaw.map((a) => {
             if (typeof a === "string") {
               const loaded = deps.agents?.get(a);
@@ -2133,6 +2146,12 @@ async function runImpl(slug: string, args: Record<string, unknown>, deps: Server
         }
         // The substrate loop: validate → canonical hash → (if genome_dir) persist + ledger-seal.
         const sealed = sealAgentDefinition(def, deps.ledger, deps.genome_dir);
+        // Write-through to the LIVE map so a same-session standard_compose resolves this agent
+        // WITHOUT a genome_reload. agent_define wrote agents/<slug>.json but never refreshed
+        // deps.agents, so standard_compose (which resolves slugs from deps.agents) denied an agent
+        // this very tool had just created. This mirrors the write-through standard_compose does for
+        // deps.standards and tool_register does for deps.toolProviders.
+        deps.agents?.set(sealed.agent.slug, sealed.agent);
         return {
           ok: true,
           requires_approval: approval,

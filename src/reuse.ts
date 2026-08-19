@@ -91,8 +91,14 @@ export function typeShapeFingerprint(def: {
  * agent's type surface, so a resume across an edited pipeline cannot happen. The rest close
  * the holes genome_hash does not cover:
  *
- *  - `gig_input_sha` — the dispatch payload. Phases 1..4 derived from payload A followed by
- *    phase 5 consuming payload B is the same splice as a genome change, one layer down.
+ *  - `gig_input_sha` — the sha256 of the CANONICAL dispatch payload, and ONLY that hash: the
+ *    payload itself is NEVER stored in a checkpoint (nor in the ledger). A later reader must not
+ *    try to "recover the input from the checkpoint" — there is nothing to recover; the hash is a
+ *    fingerprint, not a copy. Phases 1..4 derived from payload A followed by phase 5 consuming
+ *    payload B is the same splice as a genome change, one layer down. (#20: because the payload is
+ *    absent, a resume that OMITS --input cannot re-derive it; when every remaining chair is human
+ *    the resume gate INHERITS this recorded hash instead — see the runtime resume gate and the
+ *    inheritance-vs-waiver note on `runIdentityMismatch` below.)
  *  - `model_version` — a run whose first half was produced by one model and second half by
  *    another gets ONE `run_fingerprint`, carrying only the final model. That fingerprint then
  *    misdescribes the outputs it covers. Cheap to check; usually "unknown" on both sides, so
@@ -153,9 +159,37 @@ export function producersSha(input: {
   );
 }
 
-export function runIdentityMismatch(a: RunIdentity, b: RunIdentity): string[] {
+/**
+ * `waiveProducers` skips ONLY the `producers_sha` comparison; every other field still compares
+ * and still enters the returned set. It defaults OFF, so an unadorned call is byte-for-byte the
+ * old behaviour. The one caller that sets it (the resume gate) has first proven that every chair
+ * left to run is human — and a producing agent's definition cannot change what a person is being
+ * asked to decide about work that is already sealed and hashed. That is the sole justification;
+ * genome_hash, gig_input_sha, model_version, depth and canonical_form_version are NEVER waived,
+ * because they can still describe something the remaining human chair is being asked to approve.
+ *
+ * That NEVER-WAIVED rule is about a STATED mismatch, and neither #19 nor #20 touches it. Waiving
+ * skips a comparison that WOULD have failed; INHERITING substitutes the checkpoint's own recorded
+ * value for a field the operator left unstated, so the comparison a resume runs is between the
+ * checkpoint and a value it does not contradict. Two fields inherit, at the runtime resume-gate
+ * call site, never here:
+ *   - depth (#19): a resume that omits --depth compares against the depth the CHECKPOINT recorded.
+ *   - gig_input_sha (#20): a resume whose every remaining chair is human and that omits --input
+ *     compares against the gig_input_sha the CHECKPOINT recorded — because the payload is never
+ *     stored (see RunIdentity.gig_input_sha) and the remaining human chairs consume no payload.
+ * Both stay never-waived: an EXPLICIT --depth or --input that disagrees still drives a refusal, and
+ * gig_input_sha keeps gating in full the moment any remaining chair is a model chair. Inheriting a
+ * value nobody contradicted is a different act from skipping a comparison that would have failed,
+ * so reading #19 or #20 as a hole in this rule is a mistake.
+ */
+export function runIdentityMismatch(
+  a: RunIdentity,
+  b: RunIdentity,
+  opts: { waiveProducers?: boolean } = {},
+): string[] {
   const out: string[] = [];
   for (const k of Object.keys(a) as Array<keyof RunIdentity>) {
+    if (k === "producers_sha" && opts.waiveProducers) continue;
     if (a[k] !== b[k]) out.push(`${k}: checkpoint="${a[k]}" current="${b[k]}"`);
   }
   return out;
@@ -179,7 +213,7 @@ export function runIdentityMismatch(a: RunIdentity, b: RunIdentity): string[] {
  * `(chart_slug == standard_slug, movement_id == standard_slug, role)` with no collision.
  */
 export function checkpointRoleKey(chart_slug: string, movement_id: string | undefined, role: string): string {
-  return `${chart_slug} ${movement_id ?? chart_slug} ${role}`;
+  return `${chart_slug}\u0000${movement_id ?? chart_slug}\u0000${role}`;
 }
 
 /**
@@ -220,6 +254,13 @@ export interface CheckpointRole {
 export interface GigCheckpoint {
   schema_version: number;
   gig_id: string;
+  /**
+   * The run identity a resume must match. NOTE what this does NOT contain: the dispatch payload.
+   * `identity.gig_input_sha` is a sha256 of the canonical payload and nothing else — the checkpoint
+   * stores the HASH, never the bytes. A later reader must not attempt to "recover the input from
+   * the checkpoint"; that recovery is structurally impossible. On a human-only resume that omits
+   * --input, the gate inherits this hash rather than reconstructing a payload it never kept (#20).
+   */
   identity: RunIdentity;
   /**
    * The engine build (COLTRANE_VERSION) that WROTE this checkpoint.
@@ -229,7 +270,9 @@ export interface GigCheckpoint {
    * producers_sha) legitimately drifts between two builds that both write `schema_version` 1.
    * When a resume then refuses on that drift, the raw before/after hashes alone do not tell an
    * operator WHICH build would have matched — they have to guess the producing version. Recording
-   * it here turns "these two 64-hex strings disagree" into "resume from a <version> build".
+   * it here lets the refusal, when the versions genuinely DIFFER, turn "these two 64-hex strings
+   * disagree" into "resume from a <version> build". When this version equals the current one the
+   * refusal names the drifted fields instead, since the version is not what moved.
    *
    * Optional for BACK-COMPAT: a checkpoint written before this field existed has none, and a
    * resume of it refuses/succeeds exactly as before, naming "(engine version unrecorded)" in

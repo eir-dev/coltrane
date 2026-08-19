@@ -279,6 +279,269 @@ describe("resume — a mid-run failure no longer discards the phases that succee
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// The depth gate distinguishes an OMITTED flag from a DISAGREEING one (#19).
+//
+// An OMITTED --depth means "I did not say" — the checkpoint already records its depth, so its
+// value should stand and the resume proceeds. An EXPLICIT --depth that differs means "I said
+// something different", and #237 made depth shape what the model is asked for, so a skim half
+// stitched to a deep half must still refuse. Today both were refused, which made the strict case
+// indistinguishable from the lazy one. Two paired laws — mirroring the #417 scope/hold pattern —
+// pin that the gate is SCOPED to real conflict, not removed.
+describe("resume — an omitted --depth inherits the checkpoint's depth; a disagreeing one still refuses", () => {
+  // ── THE defect law (#19) ────────────────────────────────────────────────────
+  // FAILS against current code: identity() computes depth `deps.depth ?? ""`, so an omitted
+  // depth compares as "" against the checkpoint's "deep" and the resume is refused with
+  // `depth: checkpoint="deep" current=""`. That red is the defect made observable.
+  it("a resume that OMITS --depth inherits the checkpoint's recorded depth and proceeds", async () => {
+    const b = bench();
+    const checkpoints = createMemoryCheckpointStore();
+
+    // Attempt 1 at depth="deep" — phases 1,2 seal, phase 3 dies. The checkpoint records depth="deep".
+    await expect(
+      runGig(pipeline(), {}, run(b, counting({ agent: "judge", times: 1 }).invoke, { checkpoints, depth: "deep" })),
+    ).rejects.toThrow(RuntimeError);
+
+    // Attempt 2 — resume WITHOUT restating --depth. The omission must inherit "deep", not read as
+    // "" and refuse. Only the chair that failed may run; the resume must not be refused.
+    const second = counting();
+    const res = await runGig(pipeline(), {}, run(b, second.invoke, { checkpoints, resume_from: GIG }));
+
+    expect(res.status, "an unstated depth is not a disagreement — the checkpoint's depth stands").toBe("complete");
+    expect(second.calls, "scout and reader were sealed at depth=deep — only the failed judge re-runs").toEqual({ judge: 1 });
+    expect(res.resumed_from?.roles.map((r) => r.role)).toEqual(["r1", "r2"]);
+  });
+
+  // ── THE scoping law (#19) ───────────────────────────────────────────────────
+  // Proves the gate is SCOPED, not removed. An EXPLICIT depth that disagrees still refuses and
+  // names depth. A fix that inherited in BOTH cases would flip this green→red — that is its purpose.
+  it("an EXPLICIT --depth that disagrees with the checkpoint is still refused, naming depth", async () => {
+    const b = bench();
+    const checkpoints = createMemoryCheckpointStore();
+
+    // Attempt 1 at depth="deep".
+    await expect(
+      runGig(pipeline(), {}, run(b, counting({ agent: "judge", times: 1 }).invoke, { checkpoints, depth: "deep" })),
+    ).rejects.toThrow(RuntimeError);
+
+    // Attempt 2 — the operator SAYS --depth skim. That is a disagreement, not an omission: a skim
+    // half stitched to a deep half is a real defect, so the gate must still refuse and name depth.
+    const after = counting();
+    let refusal: ResumeRefused | undefined;
+    try {
+      await runGig(pipeline(), {}, run(b, after.invoke, { checkpoints, resume_from: GIG, depth: "skim" }));
+    } catch (e) {
+      refusal = e as ResumeRefused;
+    }
+    expect(refusal, "an explicit conflicting depth must still refuse").toBeInstanceOf(ResumeRefused);
+    expect(
+      refusal!.drift.some((d) => d.startsWith("depth:")),
+      "the drift names depth as the field that disagrees",
+    ).toBe(true);
+    expect(refusal!.drift).toContainEqual('depth: checkpoint="deep" current="skim"');
+    expect(after.total(), "refusing must cost nothing").toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// The producer-identity gate is SCOPED to what still has to run.
+//
+// MEASURED CASE — gig ce902971 on the deployed instance parked with only its human APPROVE
+// chair left; every producing chair had already run and sealed its output. A later
+// agent-definition edit moved producers_sha, and the resume was refused on that drift — so the
+// gig was permanently unapprovable, and in general a parked gig becomes unapprovable the moment
+// any agent definition moves after it parks. A producing agent's definition cannot change what a
+// person is being asked to decide about work that is already sealed and hashed, so producer drift
+// is NOT a resume gate when every REMAINING chair is human. The relaxation touches producers_sha
+// and nothing else, and it applies ONLY while no model chair remains — the second law pins that
+// scope, because a fix that dropped producer identity unconditionally would silently mix two
+// pipelines the moment a model chair still had to run.
+describe("resume — producer-identity drift is scoped to the chairs that still have to run", () => {
+  // scout with a rewritten METHOD under a stable slug. producersSha folds whole agent definitions,
+  // so this moves producers_sha; genomeHash folds only input_types (not method), so genome_hash is
+  // unmoved. That is a producers_sha-ONLY drift — the exact shape gig ce902971 hit.
+  const driftedScout = testAgent({ slug: "scout", primitives: ["SENSE"], input_types: [], output_types: ["seed-t"], domain: "demo", method: "sense the room completely differently" });
+
+  // A line that ends on a human APPROVE chair: after r1/r2/r3 seal, only the human chair remains.
+  const approveStd = (agents: Agent[] = [scout, reader, judge]): Standard => ({
+    slug: "permits-line", domain: "demo", agents,
+    phases: [
+      { name: "p1", chairs: [{ role: "r1", agent_slug: "scout", depends_on: [], input_contract: [], output_contract: ["seed-t"], required_skills: [] }] },
+      { name: "p2", chairs: [{ role: "r2", agent_slug: "reader", depends_on: ["r1"], input_contract: ["seed-t"], output_contract: ["mid-t"], required_skills: [] }] },
+      { name: "p3", chairs: [{ role: "r3", agent_slug: "judge", depends_on: ["r2"], input_contract: ["mid-t"], output_contract: ["end-t"], required_skills: [] }] },
+      { name: "p4", chairs: [{ role: "r4", human: true, agent_slug: "", depends_on: ["r3"], input_contract: [], output_contract: ["end-t"], required_skills: [] }] },
+    ],
+  } as Standard);
+
+  // A line whose human chair sits BEFORE a model chair: parking at it leaves a model chair (r2,
+  // the reader) still to run — the state that must keep refusing on producer drift.
+  const gatedStd = (agents: Agent[] = [scout, reader, judge]): Standard => ({
+    slug: "gated-line", domain: "demo", agents,
+    phases: [
+      { name: "p1", chairs: [{ role: "r1", agent_slug: "scout", depends_on: [], input_contract: [], output_contract: ["seed-t"], required_skills: [] }] },
+      { name: "p2", chairs: [{ role: "rA", human: true, agent_slug: "", depends_on: ["r1"], input_contract: [], output_contract: ["end-t"], required_skills: [] }] },
+      { name: "p3", chairs: [{ role: "r2", agent_slug: "reader", depends_on: ["r1"], input_contract: ["seed-t"], output_contract: ["mid-t"], required_skills: [] }] },
+    ],
+  } as Standard);
+
+  // ── THE defect law (gig ce902971) ──────────────────────────────────────────
+  // FAILS against current code: the unconditional gate throws ResumeRefused on producers_sha
+  // drift even though only a human chair remains. That red is the defect made observable.
+  it("PERMITS a resume whose every remaining chair is human, despite producers_sha drift", async () => {
+    const b = bench();
+    const checkpoints = createMemoryCheckpointStore();
+
+    // Attempt 1 — all three model chairs seal, then the gig parks at the human APPROVE chair.
+    const parked = await runGig(approveStd(), {}, run(b, counting().invoke, { checkpoints }));
+    expect(parked.status).toBe("awaiting_approval");
+    expect(parked.awaiting).toEqual({ phase: "p4", role: "r4" });
+
+    // Attempt 2 — producers_sha has drifted (scout rewritten), but only the human chair remains.
+    // Its verdict is on sealed, hashed work; the producer edit cannot touch it. It must resume.
+    const after = counting();
+    const resumed = await runGig(approveStd([driftedScout, reader, judge]), {}, run(b, after.invoke, { checkpoints, resume_from: GIG }));
+    expect(resumed.status, "a producer's edit cannot change what a person is asked to approve").toBe("awaiting_approval");
+    expect(resumed.awaiting).toEqual({ phase: "p4", role: "r4" });
+    expect(after.total(), "the sealed model chairs are restored, not replayed").toBe(0);
+  });
+
+  // ── THE scoping law (gig ce902971) ─────────────────────────────────────────
+  // Proves the check is SCOPED, not removed. The SAME producers_sha-only drift still refuses
+  // while a model chair remains. A fix that dropped producer identity unconditionally would turn
+  // this green→red — that is precisely its purpose.
+  it("STILL refuses the same producers_sha drift while any remaining chair is a model chair", async () => {
+    const b = bench();
+    const checkpoints = createMemoryCheckpointStore();
+
+    // Attempt 1 — parks at the human chair with the reader (a model chair) still ahead of it.
+    const parked = await runGig(gatedStd(), {}, run(b, counting().invoke, { checkpoints }));
+    expect(parked.status).toBe("awaiting_approval");
+    expect(parked.awaiting).toEqual({ phase: "p2", role: "rA" });
+
+    // Attempt 2 — identical producers_sha drift. A model chair remains, so the gate must hold.
+    const after = counting();
+    await expect(
+      runGig(gatedStd([driftedScout, reader, judge]), {}, run(b, after.invoke, { checkpoints, resume_from: GIG })),
+    ).rejects.toThrow(/producers_sha/);
+    expect(after.total(), "refusing must cost nothing").toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// The gig_input_sha gate distinguishes an OMITTED --input from a DISAGREEING one (#20).
+//
+// A checkpoint stores identity.gig_input_sha — a HASH of the dispatch payload — and never the
+// payload itself, so an approve-only resume cannot restate the input that only the PRODUCERS ever
+// consumed. The producers already sealed their hashed outputs; a human approving that work reads no
+// payload. So the same principle #417 applied to producer identity applies here: when every
+// remaining chair is human, an OMITTED --input inherits the checkpoint's recorded gig_input_sha
+// rather than drifting to sha256('{}') and refusing. But the moment any remaining chair is a MODEL
+// chair the payload is exactly what it will consume — the gate holds — and a SUPPLIED --input that
+// disagrees is a real conflict, not an omission, so it still refuses (the #419 distinction).
+describe("resume — an omitted --input inherits the checkpoint's gig_input_sha; a model chair or a disagreement still gates", () => {
+  // A non-empty dispatch payload, so the checkpoint records a gig_input_sha that an omitted --input
+  // (which the runtime hashes as sha256(canonJson({}))) genuinely drifts from.
+  const DISPATCH = { note: "the original dispatch payload" };
+
+  // A line that ends on a human APPROVE chair: after r1/r2/r3 seal, only the human chair remains,
+  // so allRemainingHuman holds and an omitted --input may inherit.
+  const approveStd = (): Standard => ({
+    slug: "input-permits-line", domain: "demo", agents: [scout, reader, judge],
+    phases: [
+      { name: "p1", chairs: [{ role: "r1", agent_slug: "scout", depends_on: [], input_contract: [], output_contract: ["seed-t"], required_skills: [] }] },
+      { name: "p2", chairs: [{ role: "r2", agent_slug: "reader", depends_on: ["r1"], input_contract: ["seed-t"], output_contract: ["mid-t"], required_skills: [] }] },
+      { name: "p3", chairs: [{ role: "r3", agent_slug: "judge", depends_on: ["r2"], input_contract: ["mid-t"], output_contract: ["end-t"], required_skills: [] }] },
+      { name: "p4", chairs: [{ role: "r4", human: true, agent_slug: "", depends_on: ["r3"], input_contract: [], output_contract: ["end-t"], required_skills: [] }] },
+    ],
+  } as Standard);
+
+  // A line whose human chair sits BEFORE a model chair: parking at it leaves the reader (a model
+  // chair) still to run — the state where the payload is still consumed and the gate must hold.
+  const gatedStd = (): Standard => ({
+    slug: "input-gated-line", domain: "demo", agents: [scout, reader, judge],
+    phases: [
+      { name: "p1", chairs: [{ role: "r1", agent_slug: "scout", depends_on: [], input_contract: [], output_contract: ["seed-t"], required_skills: [] }] },
+      { name: "p2", chairs: [{ role: "rA", human: true, agent_slug: "", depends_on: ["r1"], input_contract: [], output_contract: ["end-t"], required_skills: [] }] },
+      { name: "p3", chairs: [{ role: "r2", agent_slug: "reader", depends_on: ["r1"], input_contract: ["seed-t"], output_contract: ["mid-t"], required_skills: [] }] },
+    ],
+  } as Standard);
+
+  // ── THE defect law (#20) ────────────────────────────────────────────────────
+  // FAILS against current code: identity() computes gig_input_sha from the omitted input as
+  // sha256(canonJson({})), which drifts from the checkpoint's non-empty hash, so the resume is
+  // refused with `gig_input_sha: checkpoint="..." current="..."`. That red is the defect observable.
+  it("a human-only resume that OMITS --input inherits the checkpoint's gig_input_sha and proceeds", async () => {
+    const b = bench();
+    const checkpoints = createMemoryCheckpointStore();
+
+    // Attempt 1 — dispatched WITH a payload; all three model chairs seal, then the gig parks at
+    // the human APPROVE chair. The checkpoint records gig_input_sha for DISPATCH.
+    const parked = await runGig(approveStd(), DISPATCH, run(b, counting().invoke, { checkpoints }));
+    expect(parked.status).toBe("awaiting_approval");
+    expect(parked.awaiting).toEqual({ phase: "p4", role: "r4" });
+
+    // Attempt 2 — resume WITHOUT --input. The empty payload's hash must INHERIT the checkpoint's,
+    // not read as sha256('{}') and refuse. Only the human chair remains; nothing re-runs.
+    const after = counting();
+    const resumed = await runGig(approveStd(), {}, run(b, after.invoke, { checkpoints, resume_from: GIG, gig_input_omitted: true }));
+    expect(resumed.status, "an omitted --input is not a disagreement — the checkpoint's payload hash stands").toBe("awaiting_approval");
+    expect(resumed.awaiting).toEqual({ phase: "p4", role: "r4" });
+    expect(after.total(), "the sealed model chairs are restored, not replayed").toBe(0);
+  });
+
+  // ── THE scoping law (#20) ───────────────────────────────────────────────────
+  // Proves the gate is SCOPED to allRemainingHuman, not removed. The SAME omitted --input still
+  // refuses while a model chair remains — that chair WILL consume the payload. A fix that waived
+  // gig_input_sha unconditionally would flip this green→red, which is precisely its purpose.
+  it("STILL refuses an omitted --input while any remaining chair is a model chair, naming gig_input_sha", async () => {
+    const b = bench();
+    const checkpoints = createMemoryCheckpointStore();
+
+    // Attempt 1 — parks at the human chair with the reader (a model chair) still ahead of it.
+    const parked = await runGig(gatedStd(), DISPATCH, run(b, counting().invoke, { checkpoints }));
+    expect(parked.status).toBe("awaiting_approval");
+    expect(parked.awaiting).toEqual({ phase: "p2", role: "rA" });
+
+    // Attempt 2 — same omission. A model chair remains, so allRemainingHuman is false and the
+    // omitted input does NOT inherit: the sha256('{}') drift from DISPATCH's hash must still refuse.
+    const after = counting();
+    await expect(
+      runGig(gatedStd(), {}, run(b, after.invoke, { checkpoints, resume_from: GIG, gig_input_omitted: true })),
+    ).rejects.toThrow(/gig_input_sha/);
+    expect(after.total(), "refusing must cost nothing").toBe(0);
+  });
+
+  // ── THE omission-vs-conflict law (#20) ──────────────────────────────────────
+  // Proves inheritance is triggered by OMISSION alone, never by a contradictory supplied value.
+  // A human-only resume that SUPPLIES a --input disagreeing with the checkpoint still refuses:
+  // gig_input_omitted is false, so no inheritance fires. Inheriting an unstated value is not
+  // accepting a contradictory one (the #419 distinction).
+  it("a human-only resume with a SUPPLIED --input that disagrees still refuses, naming gig_input_sha", async () => {
+    const b = bench();
+    const checkpoints = createMemoryCheckpointStore();
+
+    // Attempt 1 — parks at the human chair; the checkpoint records DISPATCH's gig_input_sha.
+    const parked = await runGig(approveStd(), DISPATCH, run(b, counting().invoke, { checkpoints }));
+    expect(parked.status).toBe("awaiting_approval");
+
+    // Attempt 2 — the operator SUPPLIES a DIFFERENT payload (gig_input_omitted unset → false). That
+    // is a disagreement, not an omission, so the gate must still refuse and name gig_input_sha.
+    const after = counting();
+    let refusal: ResumeRefused | undefined;
+    try {
+      await runGig(approveStd(), { note: "a DIFFERENT payload" }, run(b, after.invoke, { checkpoints, resume_from: GIG }));
+    } catch (e) {
+      refusal = e as ResumeRefused;
+    }
+    expect(refusal, "a supplied contradictory --input must still refuse").toBeInstanceOf(ResumeRefused);
+    expect(
+      refusal!.drift.some((d) => d.startsWith("gig_input_sha:")),
+      "the drift names gig_input_sha as the field that disagrees",
+    ).toBe(true);
+    expect(after.total(), "refusing must cost nothing").toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 describe("reuse — a chair served from a prior gig's sealed output", () => {
   const withReuse = (b: Bench, invoke: AgentInvoker, gig: string, reuse: ReuseStore): RunDeps =>
     ({ outputs: b.outputs, ledger: b.ledger, invoke, gig_id: gig, reuse });

@@ -99,8 +99,22 @@ const SRC = join(process.cwd(), "src");
  *  than trust it: if the engine ever reports a field as unread that DOES have a word-boundary
  *  occurrence in src/, this catches the false positive without re-using the engine's own accounting. */
 function srcCorpus(): string {
+  return srcCorpusExcluding(null);
+}
+
+/**
+ * The src/ corpus, optionally minus the file the fields were declared in.
+ *
+ * A DECLARATION IS NOT A READ. genome_schema.ts is itself a src/*.ts file, so an engine field
+ * trivially matches its own declaration — which is what made the ENGINE ratchet unable to fail:
+ * injecting `a_field_nothing_reads: z.string()` left all 18 laws green. The cross-check below must
+ * use the SAME definition of "read" the sweep uses, or it reports the sweep's true findings as false
+ * positives.
+ */
+function srcCorpusExcluding(excludeFile: string | null): string {
   return readdirSync(SRC)
     .filter((f) => f.endsWith(".ts"))
+    .filter((f) => excludeFile === null || f !== excludeFile)
     .map((f) => readFileSync(join(SRC, f), "utf8"))
     .join("\n");
 }
@@ -417,7 +431,10 @@ describe("declared fields split into two corpora — engine (src/) vs contract (
     // The honesty contract is to UNDER-report: an engine field is unread only when `\bname\b` matches NOWHERE
     // in src/. Any engine.unread name this scan finds a hit for is a false positive.
     const engine = twoCorpora.analyzeEngineFieldReachability();
-    const corpus = srcCorpus();
+    // The SAME corpus the ENGINE sweep uses — a field's own declaration is not a reader of it.
+    // Cross-checking against a corpus that CONTAINS genome_schema.ts reports the sweep's true
+    // findings as false positives, which is how the vacuous pin hid.
+    const corpus = srcCorpusExcluding("genome_schema.ts");
     const falsePositives = engine.unread.filter((name) => new RegExp(`\\b${name}\\b`).test(corpus));
     expect(
       falsePositives,

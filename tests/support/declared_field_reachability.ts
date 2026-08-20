@@ -129,9 +129,27 @@ function declaredFieldsFromGenomeSchema(): string[] {
  *  names every calibration field in prose — is provably outside the corpus and cannot mask a dead
  *  field. */
 function srcCorpus(): string {
+  return srcCorpusExcluding(null);
+}
+
+/**
+ * The src/ corpus, optionally MINUS the file the fields were declared in.
+ *
+ * THE DECLARATION IS NOT A READ, and omitting this made the ENGINE ratchet vacuous: genome_schema.ts
+ * is itself a src/*.ts file, so every Zod field it declares matched its own declaration and every
+ * engine field counted as READ. PINNED_UNREAD_ENGINE_FIELDS sat at 0 not because the engine has no
+ * dead fields but because it could not have anything else. Injecting a field nothing reads
+ * (`a_field_nothing_reads: z.string()`) left all 18 laws green — the check could not fire.
+ *
+ * A field is reachable when something OTHER than its own declaration names it. That is the whole
+ * question this module was built to ask, and asking it of a corpus containing the declaration
+ * answers it trivially yes, every time.
+ */
+function srcCorpusExcluding(excludeFile: string | null): string {
   const srcDir = join(ROOT, "src");
   return readdirSync(srcDir)
     .filter((f) => f.endsWith(".ts"))
+    .filter((f) => excludeFile === null || f !== excludeFile)
     .map((f) => readFileSync(join(srcDir, f), "utf8"))
     .join("\n");
 }
@@ -331,7 +349,13 @@ const CONTRACT_METHOD_NOTE = [
 /** ENGINE sweep: genome_schema.ts Zod keys, searched in flat src/*.ts. See the two-corpora note above for
  *  why this population's unread set is empty and its pin is 0. */
 export function analyzeEngineFieldReachability(): FieldReachabilityReport {
-  return sweepPopulation(declaredFieldsFromGenomeSchema(), srcCorpus(), ENGINE_METHOD_NOTE);
+  // Excludes genome_schema.ts: a field's own declaration is not a reader of it. See
+  // srcCorpusExcluding — including it made this ratchet unable to fail.
+  return sweepPopulation(
+    declaredFieldsFromGenomeSchema(),
+    srcCorpusExcluding("genome_schema.ts"),
+    ENGINE_METHOD_NOTE,
+  );
 }
 
 /** CONTRACT sweep: domain_types/ + core_types/ schema.properties keys, searched in the broad recursive
@@ -366,7 +390,22 @@ export const TWO_CORPORA_CALIBRATION_TRAIL = {
  *  — always holds its declaration, so \bname\b always matches. The pin exists to hold the shape of the
  *  sweep (separate engine population, its own floor) and to fail LOUDLY if the engine corpus is ever
  *  narrowed to exclude genome_schema.ts and a genuine orchestrator-dead field surfaces. May only decrease. */
-export const PINNED_UNREAD_ENGINE_FIELDS = 0;
+/**
+ * VERIFIED, not assumed. 14 Zod fields in genome_schema.ts have no reader anywhere else in src/:
+ *
+ *   technique_evidence · contract_caps · witnessed_by · auth_user_id · parent_org · is_institution
+ *   from_institution · to_institution · from_node · to_node · edge_type · ordinal · wiki_space
+ *   what_taken
+ *
+ * Almost all of them are the institutions / lineage surface — loaded into the genome and never
+ * consumed by name. `technique_evidence` is the one CLAUDE.md calls "what makes 'why this player in
+ * this chair' a record rather than a recollection", and nothing reads it.
+ *
+ * This pin sat at 0 and could not move: srcCorpus() included genome_schema.ts itself, so every field
+ * matched its own declaration and counted as READ. Injecting `a_field_nothing_reads: z.string()` left
+ * all 18 laws green. A declaration is not a read; the corpus now excludes the declaring file.
+ */
+export const PINNED_UNREAD_ENGINE_FIELDS = 14;
 
 /** CONTRACT ratchet FLOOR (hand-verified 2026-08-21). 127 = the count of domain_types/*.json +
  *  core_types/*.json schema.properties keys (>= 5 chars, deduped) with no `\bname\b` reader anywhere in the

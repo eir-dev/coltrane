@@ -1,0 +1,43 @@
+{
+  "slug": "lighthouse-sow-delivery-v0",
+  "domain": "org-bearing",
+  "status": "active",
+  "kind": "bearing-law",
+  "source": "charter",
+  "subject_ref": "org:eir-labs-inc",
+  "bearer": "Eir Labs Inc., a Delaware corporation (incorporated 2026-06-30; EIN 42-4075826)",
+  "description": "Executed-instrument obligation of the org: deliver the Lighthouse Pilot scope under the signed SOW. Extracted from the eir-labs INSTITUTION genome and re-homed to the ORG genome under WO-B04 as amended — the law binds the legal person, and every or_else needs a bearer (org-genome-design.md §0, §4.3).",
+  "law": {
+    "attributes": "Eir Labs Inc, a Delaware corporation, as Provider under the Lighthouse Pilot Statement of Work with Sam Ballmer (Client), signed 2026-07-24 by Eugene Stuckless, Chairman. The fee is stated payable upon execution; the governed wiki records the $25,000 payment received 2026-07-28 against invoice EIR-2026-008 (wiki-grade evidence; no located primary bank record in this corpus), so this law asserts the DELIVERY obligation, which remains open through the term.",
+    "deontic": "obliged",
+    "aim": "Deliver the contracted Lighthouse Pilot scope for the $25,000 total fixed fee, through 2026-09-30.",
+    "conditions": "From the effective date of 2026-07-20 through 2026-09-30, for the Workstream 1 and Workstream 2 deliverables (D1.1–D1.7, D2.1–D2.4) stated in the SOW.",
+    "or_else": "Non-delivery is an actionable breach of the statement of work, settled by binding arbitration before a single AAA arbitrator, seated in Seattle, Washington, under the laws of the United States and the State of Delaware (SOW §8, Governing Law & Arbitration).",
+    "check": {
+      "predicate": "(=> (has provider sow) (require (backed_by_contract sow)))",
+      "inputs": {
+        "provider": "principal",
+        "sow": "instrument-ref"
+      }
+    }
+  },
+  "instrument": {
+    "name": "Statement of Work — Lighthouse Pilot",
+    "parties": ["Eir Labs Inc., a Delaware corporation (Provider)", "Sam Ballmer (Client)"],
+    "effective_date": "2026-07-20",
+    "signed": "2026-07-24 (Eugene Stuckless, Chairman — Provider; Sam Ballmer — Client)",
+    "term_end": "2026-09-30",
+    "fee": "$25,000 total fixed, payable upon execution",
+    "source_document": "~/eir/prospectus/corpus/docs/primary/SIGNED-LIGHTHOUSE-SOW.txt",
+    "anomaly_on_the_record": "the executed SOW's page footer reads 'Confidential — Eir Is Real, Inc. July 2026' while the operative Provider clause names 'Eir Labs Inc., a Delaware corporation'; the wiki deal note likewise equivocates ('Provider: Eir Labs Inc. (Eir Is Real, Inc., Delaware)'). This law follows the operative party clause; the footer contradiction is recorded, not erased. See RESEARCH-DOSSIER.md §UNRESOLVED."
+  },
+  "flags": [
+    "delivery date disputed and unresolved (declared obligation of the Contracting Office chair, prospectus/genome/institutions/eir-labs.json chairs[0])"
+  ],
+  "provenance": {
+    "extracted_from": "~/eir/prospectus/genome/institutions/eir-labs.json (institution.laws[0])",
+    "prior_content_hash": "sha256:70437ade86b00fa4e7ec8d769273643e781e7612675ed30dbc14530e368b48f8",
+    "recast_under": "WO-B04 'The eir-labs Org Genome, Founded', as amended (Documenso #1928609, signed 2026-08-25)",
+    "content_hash_note": "content_hash deliberately absent — lawfully pre-sealing; Nomos seals (org-genome-design.md §3)"
+  }
+}

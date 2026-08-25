@@ -1,0 +1,43 @@
+{
+  "slug": "safe-portfolio-honor-v0",
+  "domain": "org-bearing",
+  "status": "active",
+  "kind": "bearing-law",
+  "source": "charter",
+  "subject_ref": "org:eir-labs-inc",
+  "bearer": "Issuer of record: Eir Is Real, Inc. (all 16 executed SAFEs). Intended assignee: Eir Labs Inc. under the Omnibus SAFE Assignment and Assumption Agreement — the assignment's executed status is NOT evidenced in the local record.",
+  "description": "The further obligation the record shows the entity group bears beyond the two commercial-instrument laws: honor the executed SAFE portfolio. Declared as an obligation of the Contracting Office chair in the parked institution genome ('honor the SAFE conversion and liquidity terms on the triggering event'); researched here against the executed instruments and the reconciled portfolio. First-class in the ORG genome because SAFEs bind a legal person, never a statute (org-genome-design.md §0, §4.3 — 'Plus the SAFE obligation').",
+  "law": {
+    "attributes": "The 16 executed post-money SAFEs issued by Eir Is Real, Inc. between 2025-03-26 and 2026-02-20 — 13 investors, $215,606.36 total, valuation caps ranging $1M to $12M plus one negotiated $8.5M — every instrument read directly or twice-corroborated, every dollar received matched to paper (portfolio reconciliation closed 2026-07-27). Under the reorganization these transfer to Eir Labs Inc. per the Goodwin-drafted Omnibus SAFE Assignment and Assumption Agreement, whose executed status no located document evidences.",
+    "deontic": "obliged",
+    "aim": "Honor the SAFE conversion and liquidity terms of each executed instrument on its triggering event.",
+    "conditions": "Per each instrument's own terms (post-money SAFEs; conversion at the lesser of discount-adjusted price or cap-based price; conversion trigger: next equity financing with gross proceeds ≥ $500,000 excluding SAFE amounts — SAFE Agreements Summary). Carried compliance history, on the record: the June 2025 rescission drafts (stating the original offering 'was not compliant with applicable U.S. securities laws for non-accredited investors') were NEVER signed, so for the re-papered cohort two instruments may technically coexist per person — counsel to determine which instrument governs.",
+    "or_else": "Non-performance on a triggering event is an actionable breach of an executed convertible instrument, enforceable by each holder under the law governing that instrument.",
+    "check": {
+      "predicate": "(=> (has issuer safe) (require (backed_by_contract safe)))",
+      "inputs": {
+        "issuer": "principal",
+        "safe": "instrument-ref"
+      }
+    }
+  },
+  "instrument": {
+    "name": "The executed SAFE portfolio (16 instruments, 13 investors, $215,606.36)",
+    "issuer_of_record": "Eir Is Real, Inc., a Delaware corporation",
+    "consolidated_package": "'Eir Labs - Goodwin SAFE Package (2026-07)' — all 16 executed SAFEs chronologically numbered plus '00 - SAFE Schedule - Eir Is Real Inc.csv' (Drive; per legal.eir-is-real-safes.md)",
+    "source_documents": [
+      "~/eir/prospectus/corpus/wiki/legal.eir-is-real-safes.md (per-instrument verification, DocuSign envelope IDs, reconciliation closed 2026-07-27)",
+      "~/eir/dataroom/safes/ (executed PDFs, local mirror)",
+      "~/eir/dataroom/safes/SAFE Agreements Summary.md (Feb 2026 snapshot — 12 SAFEs/$181,487.47, superseded by the Jul 27 sweep's 16/$215,606.36)"
+    ]
+  },
+  "flags": [
+    "The parked institution genome's chair obligation reads 'the executed SAFEs at the $14M post-money cap (holder count disputed and unresolved)' — the executed portfolio's caps are $1M–$12M (+$8.5M); the only located $14M-cap instrument is the NEW Eir Labs Inc. SAFE shape for Brett Hanrahan ($200K commitment, cap set 2026-08-05, 'Nothing executed' as of that note; one $14M/20% executed old-entity SAFE exists: Natasha Osman Smith, $2,500, 2025-12-09). The $14M phrasing is therefore NOT corroborated as a description of the executed portfolio; recorded as a discrepancy, not adopted.",
+    "Omnibus assignment executed status: unevidenced locally — the instrument is named in the Goodwin doc-set inventory only (legal.eir-labs-inc.md)."
+  ],
+  "provenance": {
+    "extracted_from": "~/eir/prospectus/genome/institutions/eir-labs.json (chairs[0].obligations[1], tier 'declared') — promoted from a chair-declared obligation to a researched org bearing-law",
+    "recast_under": "WO-B04 'The eir-labs Org Genome, Founded', as amended (Documenso #1928609, signed 2026-08-25)",
+    "content_hash_note": "content_hash deliberately absent — lawfully pre-sealing; Nomos seals (org-genome-design.md §3)"
+  }
+}

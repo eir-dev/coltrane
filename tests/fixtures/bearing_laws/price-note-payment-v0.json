@@ -1,0 +1,45 @@
+{
+  "slug": "price-note-payment-v0",
+  "domain": "org-bearing",
+  "status": "active",
+  "kind": "bearing-law",
+  "source": "charter",
+  "subject_ref": "org:eir-is-real-inc",
+  "bearer": "Eir Is Real, Inc., a Delaware corporation (incorporated 2025-02-21, Delaware File No. 10108548) — the FOREBEAR legal person, NOT Eir Labs Inc.",
+  "description": "Executed-instrument obligation researched from the record: pay Sean Evan Price the sum acknowledged in the Promissory Note. Extracted from the eir-labs INSTITUTION genome and carried in the ORG genome under WO-B04 as amended. Per org-genome-design.md §4.3(b), the Note's named debtor is Eir Is Real, Inc., so this law is seated on the LINEAGE bearer, not on eir-labs-inc's own charter — 'the corpus question stands and the genome should carry it as stated, not resolve it by fiat.' Sealed here because the org genome records what does and does not cross the veil (§1c).",
+  "law": {
+    "attributes": "Eir is Real, Inc. — the entity named as debtor in the Promissory Note dated 2025-10-29 (executed 11-12 Nov 2025, OpenSign DocumentId CjFe3lt92P; signed by Eugene Randall Stuckless, Chief Executive Officer). NOT Eir Labs Inc: no located instrument names Eir Labs as a party to this debt, and whether it passes under the omnibus assignment is a question the corpus does not answer — the one located description of that instrument, the 'Omnibus SAFE Assignment and Assumption Agreement', covers SAFEs and the instrument's text is not in the local record. The Independent Contractor Agreement of 2025-08-04 is with a third entity again, 合同会社EIR.",
+    "deontic": "obliged",
+    "aim": "Pay Sean Evan Price the $7,955 acknowledged in the Promissory Note for services performed 2025-09-12 to 2025-10-31.",
+    "conditions": "On the terms stated in the Note itself ($3,955 no later than 2025-11-30; $4,000 no later than 2025-12-25). This law covers ONLY the Note-acknowledged sum. The wider $5,734.58 balance in the 2026-08-05 internal reconciliation is correctly computed ($18,455.00 − $12,720.42) but spans three evidence grades: $5,000 under a signed ICA, $7,955 under this Note formalizing work done without a contract in place, $4,500 evidenced by a Slack exchange of 2025-12-21, and $1,000 of the base is a milestone bonus — confirmed triggered per the 2026-08-05 reconciliation (Rob as first paying customer, October 2025).",
+    "or_else": "Non-payment is an actionable breach of an executed promissory note, recoverable by the payee under the law governing that instrument.",
+    "check": {
+      "predicate": "(=> (has debtor note) (require (backed_by_contract note)))",
+      "inputs": {
+        "debtor": "principal",
+        "note": "instrument-ref"
+      }
+    }
+  },
+  "instrument": {
+    "name": "Promissory Note / 支払約束書 — Sean Evan Price",
+    "parties": ["Eir is Real, Inc. (the Company; debtor)", "Sean Evan Price (the Employee; payee)"],
+    "dated": "2025-10-29",
+    "executed": "2025-11-11 (Company) / 2025-11-12 (Employee) — OpenSign DocumentId CjFe3lt92P",
+    "sum": "$7,955 (USD 2,955 pro-rated Sep 12–30, 2025 + USD 5,000 October 2025)",
+    "source_document": "~/eir/prospectus/corpus/docs/primary/Promissory Note - Sean Price - 2025-10-29.txt",
+    "anomaly_on_the_record": "the Note's signature block styles the Company 'Eir Inc.' while the body names 'Eir is Real, Inc.' — recorded; the body's full name governs the identification here."
+  },
+  "unresolved": {
+    "question": "Does this debt pass to Eir Labs Inc. under the reorganization?",
+    "evidence_no": "No located instrument names Eir Labs Inc. as a party to this debt (eir-labs.json law 2, re-verified against the corpus 2026-08-25); the only located assignment apparatus is the 'Omnibus SAFE Assignment and Assumption Agreement — moves old-entity SAFEs to Eir Labs Inc.' (legal.eir-labs-inc.md), which by its located description covers SAFEs.",
+    "evidence_yes": "The reorganization intends the old entity's obligations and assets to move to the newco (SAFEs transfer 'per Goodwin draft language'; 'All Eir Is Real IP intended to transfer to newco' — legal.eir-labs-inc.md); the omnibus instrument's full text is NOT in the local record, so its actual scope cannot be read.",
+    "disposition": "UNRESOLVED — recorded with the evidence on both sides; not picked by preference. Post-Note payments to Price continued from company accounts through 2026-06-19 (money.sean-price-reconciliation.md payment table) without any located instrument novating the debtor."
+  },
+  "provenance": {
+    "extracted_from": "~/eir/prospectus/genome/institutions/eir-labs.json (institution.laws[1])",
+    "prior_content_hash": "sha256:1a1908dcbc918bd8fbd370e3fc21de4a054926bf506c1c79fe817b9a6d0fe993",
+    "recast_under": "WO-B04 'The eir-labs Org Genome, Founded', as amended (Documenso #1928609, signed 2026-08-25)",
+    "content_hash_note": "content_hash deliberately absent — lawfully pre-sealing; Nomos seals (org-genome-design.md §3)"
+  }
+}

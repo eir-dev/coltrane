@@ -185,3 +185,45 @@ describe("LAW 10 — the engine names no platform and reads no environment", () 
     }
   });
 });
+
+describe("LAW 11 — a typed refusal REACHES the operator, it is not buried in a schema error", () => {
+  // FOUND BY PROBING MY OWN DOUBT BEFORE ASKING FOR REVIEW. The invoker returns typed refusals and
+  // never throws — but AgentInvoker's contract is "return the typed blob", so the seal path fed the
+  // refusal to validateWrite and the operator got:
+  //
+  //   chair "r" cannot seal "p": ... required property 'v' ... additionalProperties: must NOT have
+  //   additional properties 'ok' ... 'refusal'
+  //
+  // instead of "this chair grants Bash, which this invoker does not carry". The reason was right
+  // there in the returned object and nothing read it. A refusal that is typed and then discarded is
+  // the same defect as a law with nothing behind it, one seam over: the mechanism exists and is
+  // never reached.
+  it("the refusal's own message is what the chair fails with", async () => {
+    const { runGig, createRegistry, createOutputStore, MemoryLedger } = await import("../src");
+    const registry = createRegistry();
+    registry.registerType(note);
+    const std = {
+      slug: "one", domain: "research", agents: [shellUser],
+      phases: [{ name: "gather", chairs: [{ role: "r", agent_slug: "shell-user", depends_on: [], input_contract: [], output_contract: ["research-note"], required_skills: [] }] }],
+    };
+    const { fn } = fakeCompletions([saysJson({ claim: "c", source: "s" })]);
+    const { source } = recordingTools(TOOLS);
+    const C: CompletionsModule = await loadCompletions();
+
+    let msg = "";
+    try {
+      await runGig(std as never, {}, {
+        outputs: createOutputStore(registry),
+        ledger: new MemoryLedger(),
+        invoke: C.makeCompletionsInvoker(opts({ fetchFn: fn, tools: source })),
+      });
+    } catch (e) {
+      msg = e instanceof Error ? e.message : String(e);
+    }
+    // The positive: the operator is told the actual reason, naming the actual tool.
+    expect(msg, "the refusal reason never reached the operator").toContain("host_tool_denied");
+    expect(msg, "the refusal did not name the offending tool").toContain("Bash");
+    // And NOT drowned in the shape complaint that hid it.
+    expect(msg, "the refusal is still buried in a schema error").not.toContain("additionalProperties");
+  });
+});

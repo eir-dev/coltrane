@@ -2867,6 +2867,28 @@ export async function runGig(
     // #243 — DECIDE BEFORE SEALING. Every check that can throw now runs against resolved
     // slices while nothing has been written yet.
     //
+    // AN INVOKER'S TYPED REFUSAL IS A REASON, NOT A MALFORMED OUTPUT. An invoker that declines —
+    // a chair granting a tool that port does not carry, a tier the deployment never mapped, an
+    // upstream that could not be reached — returns `{ok:false, refusal, message}` rather than
+    // throwing, so the refusal is a value the engine can act on. Without this it fell straight
+    // through to the seal path and the operator was told
+    //
+    //   cannot seal "p": ... additionalProperties: must NOT have additional properties 'refusal'
+    //
+    // which is the shape complaint of the very object carrying the answer. The reason was present
+    // and nothing read it — a refusal typed and then discarded is the same defect as a mechanism
+    // nothing reaches, one seam over.
+    //
+    // Narrow on purpose: `ok === false` with BOTH a string refusal and a string message. A domain
+    // type is free to have an `ok` field; it is not plausibly carrying all three.
+    const refusal = data["refusal"];
+    const refusalWhy = data["message"];
+    if (data["ok"] === false && typeof refusal === "string" && typeof refusalWhy === "string") {
+      throw new RuntimeError(
+        `chair "${chair.role}" refused: ${refusal} — ${refusalWhy}`,
+      );
+    }
+
     // The floor check used to sit AFTER the write loop, which created a failure class that did
     // not previously exist: a chair delivering part of its contract sealed those records,
     // append-flushed them to `outputs/<gig_id>.jsonl`, and only THEN threw — so the gig failed

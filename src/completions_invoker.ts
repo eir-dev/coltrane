@@ -104,12 +104,44 @@ const refuse = (refusal: CompletionsRefusal, message: string): Record<string, un
 
 const SAFE_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 const ESCAPE = "x0_";
+/** The wire's own bound on a function name. Legality is a SEPARATE property from losslessness — a
+ *  round-trip law proves the second and says nothing about the first, which is how a 68-character
+ *  name came to encode to 139 and pass every test. */
+const NAME_LIMIT = 64;
+const TRUNC = "x1_";
 
+/** A short deterministic digest, so two distinct long names cannot collapse onto one wire name. */
+function shortDigest(s: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < s.length; i++) {
+    h1 = Math.imul(h1 ^ s.charCodeAt(i), 0x01000193) >>> 0;
+    h2 = Math.imul(h2 + s.charCodeAt(i) + i, 0x85ebca6b) >>> 0;
+  }
+  return h1.toString(36).padStart(7, "0") + h2.toString(36).padStart(7, "0");
+}
+
+/**
+ * An MCP name → a name the wire will actually accept: `[A-Za-z0-9_-]{1,64}`.
+ *
+ * Three tiers, and the third is the one this needed. A safe short name passes through unchanged,
+ * because a model reasons better about `mcp__coltrane__output_query` than about a hex blob. Anything
+ * else is hex-escaped, which is reversible. And a name too long for EITHER form is truncated with a
+ * digest — legal and collision-resistant, but no longer invertible on its own.
+ *
+ * That last tier is why the invoker resolves replies through the tool list it already holds rather
+ * than by inverting the name: a long-named tool stays callable instead of being refused for the
+ * shape of its name.
+ */
 export function encodeToolName(name: string): string {
-  if (SAFE_NAME.test(name) && !name.startsWith(ESCAPE)) return name;
+  if (SAFE_NAME.test(name) && !name.startsWith(ESCAPE) && !name.startsWith(TRUNC)) return name;
   let hex = "";
   for (const byte of new TextEncoder().encode(name)) hex += byte.toString(16).padStart(2, "0");
-  return ESCAPE + hex;
+  const escaped = ESCAPE + hex;
+  if (escaped.length <= NAME_LIMIT) return escaped;
+  const digest = shortDigest(name);
+  const room = NAME_LIMIT - TRUNC.length - digest.length - 1;
+  return `${TRUNC}${hex.slice(0, Math.max(0, room))}_${digest}`;
 }
 
 export function fromFunctionName(name: string): string {
@@ -198,7 +230,12 @@ export function makeCompletionsInvoker(opts: CompletionsInvokerOptions): AgentIn
         : undefined;
     const prompt = buildPrompt(ctx, single, many);
 
-    const defs = opts.tools ? (await opts.tools.list()).map(toFunctionDef) : [];
+    // The list is the authority on what a wire name means. Inverting the encoding works for the
+    // two reversible tiers and cannot work for a truncated one — so the map is built once here and
+    // the reply is resolved through it, which is correct for all three.
+    const listed = opts.tools ? await opts.tools.list() : [];
+    const byWireName = new Map(listed.map((t) => [encodeToolName(t.name), t.name]));
+    const defs = listed.map(toFunctionDef);
     const messages: Record<string, unknown>[] = [{ role: "user", content: prompt }];
 
     let reply: ChatReply | undefined;
@@ -239,7 +276,7 @@ export function makeCompletionsInvoker(opts: CompletionsInvokerOptions): AgentIn
       messages.push({ role: "assistant", content: null, tool_calls: calls });
       for (const call of calls) {
         const wire = call.function?.name ?? "";
-        const name = fromFunctionName(wire);
+        const name = byWireName.get(wire) ?? fromFunctionName(wire);
         let result: unknown;
         try {
           const args = JSON.parse(call.function?.arguments || "{}") as Record<string, unknown>;

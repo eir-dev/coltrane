@@ -653,7 +653,16 @@ export function rpcGenomeStore(
         } catch { /* keep the raw text */ }
         throw new GenomeLoadError(`genome load (agent token): ${message}`);
       }
-      const rows = JSON.parse(text) as Partial<GenomeRows>;
+      const rows = JSON.parse(text) as Partial<GenomeRows> & { org_id?: unknown };
+      // THE ANSWER NAMES ITS OWN ORG. `coltrane_mcp_genome` authenticates a `ctk_`, and
+      // `coltrane_agent_token.org_id` is `uuid NOT NULL` with one row per key — so a token resolves
+      // to exactly one organization BY CONSTRUCTION. Nothing selects, so nothing can select wrong.
+      //
+      // This is what lets the drain pin itself. Its claim carries `acting_for` (an agent slug) and
+      // no org, and it does not need one: the genome answer it is already reading names the org,
+      // from the authoritative source. No third repo, no second resolution path, and the caller's
+      // explicit pin still wins when one was given.
+      const answeredOrg = typeof rows.org_id === "string" ? rows.org_id : undefined;
       return reconstructGenome({
         core_types: rows.core_types ?? [],
         domain_types: rows.domain_types ?? [],
@@ -662,7 +671,7 @@ export function rpcGenomeStore(
         skills: rows.skills ?? [],
         charts: rows.charts ?? [],
         venues: rows.venues ?? [],
-      }, { acting_org_id: ctx.acting_org_id });
+      }, { acting_org_id: ctx.acting_org_id ?? answeredOrg });
     },
     async upsert(): Promise<void> {
       throw new Error("an agent token does not author genome — authoring is a member act through the governed upsert");

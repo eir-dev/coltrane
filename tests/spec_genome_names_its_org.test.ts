@@ -30,7 +30,7 @@
 // These laws assert the rooms RESOLVE, with the right org's equipment: a positive only the working
 // path can produce.
 import { describe, it, expect } from "vitest";
-import { reconstructGenome } from "../src/genome_store.js";
+import { reconstructGenome, rpcGenomeStore } from "../src/genome_store.js";
 
 const ORG_A = "11111111-1111-4111-8111-111111111111"; // eir-labs-inc, in the fixture
 const ORG_B = "22222222-2222-4222-8222-222222222222"; // eugene-studio
@@ -132,5 +132,62 @@ describe("WI-11 — a venue is (org_id, slug), never a slug alone", () => {
       reconstructGenome(rows as never, { acting_org_id: "eir-labs-inc" } as never).venues.has("solo-desk"),
       "a slug was accepted as an org identity — slugs are exactly what collides across orgs",
     ).toBe(false);
+  });
+});
+
+describe("the token's answer names the org — the drain pins itself", () => {
+  // The store half (coltrane-ui #232) adds `org_id` to the genome RPC's answer, because
+  // `coltrane_mcp_genome` has always scoped every collection to the token's org and simply never
+  // SAID so. `coltrane_agent_token.org_id` is `uuid NOT NULL`, one row per key_id — so a ctk_
+  // resolves to exactly one organization BY CONSTRUCTION. Nothing selects, so nothing can choose
+  // wrong: not "the function is careful" but "there is nothing to be careful about."
+  //
+  // That closes the last open question without a third repo: the drain does not need to learn its
+  // org from the claim (which carries only `acting_for`, an agent slug) or from its own env — the
+  // genome answer it is already reading names the org, from the authoritative source.
+  const ORG = "33333333-3333-4333-8333-333333333333";
+
+  function stubFetch(answer: Record<string, unknown>) {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(answer),
+    })) as unknown as typeof fetch;
+    return () => {
+      globalThis.fetch = original;
+    };
+  }
+
+  it("pins the load with the org_id the RPC returned, so a contested name still resolves", async () => {
+    const restore = stubFetch({
+      core_types: [], domain_types: [], agents: [], standards: [], skills: [], charts: [],
+      org_id: ORG,
+      // Both orgs' rows present in the answer is the worst case; the pin must still pick correctly.
+      venues: [venueRow("verifier-desk", ORG, ["Read", "Grep"]), venueRow("verifier-desk", ORG_B, ["Bash"])],
+    });
+    try {
+      const store = rpcGenomeStore({ baseUrl: "https://s.test", anonKey: "a", agentToken: "ctk_x" });
+      const g = await store.load();
+      // The positive: resolved, and resolved to the RIGHT room. A count alone cannot tell
+      // "resolved to one" from "resolved to the other org's".
+      expect(g.venues.get("verifier-desk")?.equipment.tools, "the drain loaded the wrong org's desk")
+        .toEqual(["Read", "Grep"]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("an answer with no org_id stays unpinned — the engine does not invent one", async () => {
+    const restore = stubFetch({
+      core_types: [], domain_types: [], agents: [], standards: [], skills: [], charts: [],
+      venues: [venueRow("verifier-desk", ORG, ["Read"]), venueRow("verifier-desk", ORG_B, ["Bash"])],
+    });
+    try {
+      const g = await rpcGenomeStore({ baseUrl: "https://s.test", anonKey: "a", agentToken: "ctk_x" }).load();
+      expect(g.venues.has("verifier-desk"), "an unnamed org was defaulted rather than declined").toBe(false);
+    } finally {
+      restore();
+    }
   });
 });

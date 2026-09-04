@@ -55,6 +55,8 @@ export interface CompletionsModule {
   makeCompletionsInvoker(opts: CompletionsInvokerOptions): AgentInvoker;
   /** MCP tool → OpenAI function definition. Pure, so the round-trip is a law. */
   toFunctionDef(tool: McpToolDef): FunctionDef;
+  /** MCP name -> a wire-legal function name. Lossless AND within the 64-char bound. */
+  encodeToolName(name: string): string;
   /** The inverse read: a function name back to the MCP tool name it addresses. */
   fromFunctionName(name: string): string;
   COMPLETIONS_REFUSALS: readonly CompletionsRefusal[];

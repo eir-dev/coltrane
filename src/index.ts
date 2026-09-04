@@ -29,6 +29,7 @@ export * from "./gig_conformance.js";
 export * from "./chart.js";
 export * from "./claude_invoker.js";
 export * from "./bifrost_invoker.js";
+export * from "./completions_invoker.js";
 export * from "./circle_of_fifths.js";
 export * from "./modulation_path.js";
 export * from "./tensor_read.js";

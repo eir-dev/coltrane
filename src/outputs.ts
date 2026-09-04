@@ -78,6 +78,13 @@ export interface OutputRecord {
    */
   model?: string | undefined;
   model_tier?: string | undefined;
+  /**
+   * TRUE when `model` is what the transport SAID it ran; absent when it is the tier resolution's
+   * best guess. The distinction is load-bearing for cost work: a per-chair figure attributed to an
+   * inferred model is not a measurement, and a comparison built on it compares nothing. Same
+   * discipline as the gig usage's `partial` / `by_model_partial` flags.
+   */
+  model_reported?: boolean | undefined;
   // When the producer is a skill-backed chair (deterministic code, no model), this pins
   // WHICH skill produced the output — slug + version + verified code_hash + permission tier.
   // It closes the chair→skill provenance gap: an audit can trace the ledger entry back to the
@@ -125,6 +132,7 @@ export interface OutputWrite {
   /** See OutputRecord.model — which model produced this, and the tier that selected it. */
   model?: string | undefined;
   model_tier?: string | undefined;
+  model_reported?: boolean | undefined;
   skill_provenance?: { slug: string; version: number; code_hash: string; tier: number } | undefined;
   /** See OutputRecord.reused_from — recall, not derivation. */
   reused_from?: { output_id: string; gig_id: string; cache_key: string } | undefined;

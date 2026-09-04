@@ -1144,10 +1144,29 @@ export async function runGig(
 
   // One sink per chair — `onEvent` is already per-chair, so attribution is expressible at the
   // only granularity that means anything. Returns whether THIS chair ever reported usage.
-  const makeUsageSink = (): { fold: (ev: AgentStreamEvent) => void; attributed: () => boolean } => {
+  const makeUsageSink = (): {
+    fold: (ev: AgentStreamEvent) => void;
+    attributed: () => boolean;
+    /** What the transport SAID about this one chair — measured, never inferred. */
+    reported: () => { model?: string; cost_usd?: number; tokens_used?: number };
+  } => {
     let saw = false;
+    // Per-chair, alongside the gig-level fold. The gig's `by_model` cannot separate two chairs in
+    // one run, which is exactly the question per-chair routing asks.
+    let chairModel: string | undefined;
+    let chairCost = 0;
+    let chairTokens = 0;
+    let chairSaw = false;
     return {
       attributed: () => saw,
+      reported: () =>
+        chairSaw
+          ? {
+              ...(chairModel !== undefined ? { model: chairModel } : {}),
+              cost_usd: chairCost,
+              tokens_used: chairTokens,
+            }
+          : {},
       fold(ev: AgentStreamEvent): void {
         if (ev.type !== "result") return;
         const raw = ev.raw as Record<string, unknown> | undefined;
@@ -1165,6 +1184,11 @@ export async function runGig(
         // number this engine could produce about money.
         if (!hasCost && !hasTokens && !hasBreakdown) return;
 
+        chairSaw = true;
+        chairTokens +=
+          (typeof inRaw === "number" ? inRaw : 0) + (typeof outRaw === "number" ? outRaw : 0);
+        chairCost += hasCost ? (costRaw as number) : 0;
+
         usage.input_tokens += typeof inRaw === "number" ? inRaw : 0;
         usage.output_tokens += typeof outRaw === "number" ? outRaw : 0;
         usage.total_cost_usd += hasCost ? (costRaw as number) : 0;
@@ -1176,6 +1200,9 @@ export async function runGig(
             slot.output_tokens += typeof m["outputTokens"] === "number" ? (m["outputTokens"] as number) : 0;
             slot.cost_usd += typeof m["costUSD"] === "number" ? (m["costUSD"] as number) : 0;
             usage.by_model[model] = slot;
+            // The first key IS the answer to "what ran this chair" — the transport's own word,
+            // which is the only honest source for the stamp.
+            chairModel ??= model;
           }
         } else {
           // The scalars moved but `by_model` did not — the breakdown cannot sum to the total.
@@ -2506,6 +2533,9 @@ export async function runGig(
   }
 
   async function executeChair(p: PreparedChair): Promise<OutputRecord[]> {
+    // What the transport SAID about this chair, hoisted out of the invocation block so the seal
+    // can prefer a measurement over the tier table's guess. Empty for a skill-backed chair.
+    let chairReport: { model?: string; cost_usd?: number; tokens_used?: number } = {};
     const { chair, phaseName, inputs, skills, output_specs, producer_slug, domain } = p;
     const t0 = Date.now();
 
@@ -2716,6 +2746,7 @@ export async function runGig(
         throw e;
       } finally {
         if (sink.attributed()) attributedInvocations++;
+        chairReport = sink.reported();
       }
       // The drawing chair LANDED within its reserve → clear yielding back to `active` (O12/INV16).
       // The gig-end success path then settles it; an idle chair that held but never drew releases here.
@@ -2953,10 +2984,22 @@ export async function runGig(
         // WHICH model produced this, resolved through the invoker's own function so the stamp
         // and the spawn cannot disagree. Absent for a skill-backed chair — no model ran, and
         // absent must mean unknown rather than "the default".
+        // WHICH model produced this. The transport's own word wins: `resolveModel` is one
+        // invoker's tier table, and the runtime calls it for EVERY invoker — so a chair served by
+        // any other port used to seal a stamp naming a model it never touched. The fallback stays
+        // (a transport may report nothing) but it no longer masquerades as a measurement:
+        // `model_reported` says which of the two this is. Absent for skill-backed chairs — no
+        // model ran, and absent must mean unknown rather than "the default".
         ...(p.agent
           ? {
-              model: resolveModel(p.agent.model_tier, deps.model_version),
+              model: chairReport.model ?? resolveModel(p.agent.model_tier, deps.model_version),
+              ...(chairReport.model !== undefined ? { model_reported: true } : {}),
               ...(p.agent.model_tier ? { model_tier: p.agent.model_tier } : {}),
+              // Per-chair spend, declared in the record's own schema since it was written and
+              // populated by nothing. The gig total cannot separate two chairs on two tiers,
+              // which is the only question per-chair routing asks.
+              ...(chairReport.cost_usd !== undefined ? { cost_usd: chairReport.cost_usd } : {}),
+              ...(chairReport.tokens_used !== undefined ? { tokens_used: chairReport.tokens_used } : {}),
             }
           : {}),
         skill_provenance,
